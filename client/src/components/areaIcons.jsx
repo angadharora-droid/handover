@@ -28,6 +28,8 @@ const MAP = {
   'First Floor Hall': Building,
   Restaurant: UtensilsCrossed,
   Kitchen: Flame,
+  'Main Kitchen': Flame,
+  'Base Kitchen': Flame,
   'Satellite Kitchen': Flame,
   'Service Elevators': ArrowUpDown,
   'Plant & Machinery': Cog,
