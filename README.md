@@ -99,9 +99,9 @@ Open http://localhost:5173 and sign in with one of the seeded accounts.
 
 ### Completion ("100%")
 
-An item counts as **done** only once it reaches a closed state — **Accepted**,
-**Phase 2**, or **Dropped from List**. Items that are merely touched (Pending,
-Docs Pending, Damaged, Next Visit) are *not* counted toward completion. So the
+An item counts as **done** only once it reaches a closed state — **Accepted**
+or **Dropped from List**. Items that are merely touched (Pending, Docs Pending,
+Damaged, Next Visit, Phase 2) are *not* counted toward completion. So the
 dashboard's **Completed %**, the area cards, and the room tiles all reflect how
 much is genuinely resolved — not just how much has been looked at.
 
