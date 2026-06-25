@@ -186,7 +186,7 @@ export const CHECKLIST = {
       { id: 'RS10.11', name: 'Temporary roofing, lighting & cooling – podium terrace', spec: '' },
     ],
   },
-  'Kitchen': {
+  'Main Kitchen': {
     icon: 'soup',
     items: [
       { id: 'KT11.1', name: 'Access to restaurant & banquets', spec: '' },
@@ -211,7 +211,7 @@ export const CHECKLIST = {
     ],
   },
   // Equipment order — Hariganga's Lake Side View (Abid Refrigeration, Order R029).
-  'Main Kitchen': {
+  'Main Kitchen Equipment': {
     icon: 'soup',
     items: [
       { id: 'K-2', name: 'Work Table Sink', spec: '60"×28"×34", Qty 1, sink 18"×18"×12"' },
@@ -248,7 +248,7 @@ export const CHECKLIST = {
       { id: 'GR-1', name: 'Floor Grating', spec: '36"×12"×4", Qty 7, anti-slip, removable jali, side drain' },
     ],
   },
-  'Base Kitchen': {
+  'Base Kitchen Equipment': {
     icon: 'grill',
     items: [
       { id: 'GK-1', name: 'Single Burner Stock Pot Range', spec: '30"×30"×21", Qty 4, high-pressure burner' },
@@ -267,7 +267,7 @@ export const CHECKLIST = {
       { id: 'GR-4', name: 'Anti-Skid Floor Grating', spec: '36"×12"×4", Qty 6, removable jali, side drain' },
     ],
   },
-  'Satellite Kitchen': {
+  'Base Kitchen': {
     icon: 'grill',
     items: [
       { id: 'SK8.1', name: 'Tandoor', spec: '3 nos' },
