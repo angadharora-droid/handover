@@ -270,9 +270,16 @@ export const CHECKLIST = {
   'Base Kitchen': {
     icon: 'grill',
     items: [
+      { id: 'KT11.2', name: 'Store', spec: '' },
+      { id: 'KT11.4', name: 'Lighting', spec: '' },
+      { id: 'KT11.6', name: 'Plumbing, drains & floor drains', spec: '' },
+      { id: 'KT11.7', name: 'Potwash area demarcation', spec: '' },
+      { id: 'KT11.8', name: 'Wall tiling', spec: '' },
+      { id: 'KT11.16', name: 'Kitchen day store', spec: '' },
       { id: 'SK8.1', name: 'Tandoor', spec: '3 nos' },
       { id: 'SK8.2', name: 'Bulk ranges', spec: '2 nos' },
       { id: 'SK8.3', name: 'Washup area', spec: '' },
+      { id: 'SK8.4', name: 'Grinding area', spec: '' },
     ],
   },
   'Service Elevators': {
