@@ -13,7 +13,6 @@ import {
   Bath,
   BedDouble,
   ScrollText,
-  FileCheck,
   Boxes,
   Shirt,
   ClipboardList,
@@ -39,7 +38,6 @@ const MAP = {
   'Specially Abled Rooms': Accessibility,
   'Public Washrooms': Bath,
   'Licenses – Lessor': ScrollText,
-  'Licenses – Lessee': FileCheck,
 };
 
 export function AreaIcon({ area, className }) {

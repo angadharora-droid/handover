@@ -445,25 +445,6 @@ export const CHECKLIST = {
       { id: 'LC18', name: 'NOC for excise license from landlord', spec: '' },
     ],
   },
-  'Licenses – Lessee': {
-    icon: 'certificate-2',
-    items: [
-      { id: 'LL1', name: 'Provident fund registration', spec: '' },
-      { id: 'LL2', name: 'ESIC registration', spec: '' },
-      { id: 'LL3', name: 'GST registration', spec: '' },
-      { id: 'LL4', name: 'Shop & establishment registration', spec: '' },
-      { id: 'LL5', name: 'Health NOC', spec: '' },
-      { id: 'LL6', name: 'Signage permission', spec: '' },
-      { id: 'LL7', name: 'Food & safety licenses', spec: '' },
-      { id: 'LL8', name: 'Hotel operating license', spec: '' },
-      { id: 'LL9', name: 'Approval – Dept. of Tourism', spec: '' },
-      { id: 'LL10', name: 'EPCG from DGFT', spec: '' },
-      { id: 'LL11', name: 'Excise license & VAT registration', spec: '' },
-      { id: 'LL12', name: 'Tourism license', spec: '' },
-      { id: 'LL13', name: 'Weights & measures – metrology', spec: '' },
-      { id: 'LL14', name: 'IPRS & live entertainment', spec: '' },
-    ],
-  },
 };
 
 // ---- Helpers shared by the API routes -------------------------------------
