@@ -1,10 +1,11 @@
 // Pure helpers for deriving progress from the checklist template, the saved
 // entries, and any user-added ("Other") custom items.
 
-// An item counts as "done" only once it reaches a closed state — accepted,
-// deferred to phase 2, or dropped from the list. Items that are merely touched
-// (pending / damaged / docs-pending / next-visit) are NOT complete.
-export const COMPLETED_STATUSES = ['accepted', 'phase2', 'dropped'];
+// An item counts as "done" (and toward the completion percentage) only once it
+// reaches a closed state — accepted or dropped from the list. Items that are
+// merely touched (pending / damaged / docs-pending / next-visit / phase 2) are
+// NOT complete.
+export const COMPLETED_STATUSES = ['accepted', 'dropped'];
 
 // Statuses only an administrator may apply (mirrors the server).
 export const ADMIN_ONLY_STATUSES = ['phase2', 'dropped'];
