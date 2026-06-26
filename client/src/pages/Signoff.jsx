@@ -71,6 +71,7 @@ export default function Signoff() {
 
   const finalised = !!handover?.finalised;
   const existing = finalData?.finalSignoff;
+  const isViewer = user?.role === 'viewer';
 
   const [hga, setHga] = useState({ name: '', designation: '' });
   const [cph, setCph] = useState({ name: '', designation: '' });
@@ -214,6 +215,11 @@ export default function Signoff() {
                 {existing.cph?.name}
                 {existing.cph?.designation ? ` (${existing.cph.designation})` : ''}
               </div>
+            </div>
+          ) : isViewer ? (
+            <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-600">
+              Your account has view-only access. You can review the sign-off sheet but cannot
+              finalise the record.
             </div>
           ) : (
             <>

@@ -15,7 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useHandover } from '../lib/queries';
 
-const ROLE_LABEL = { admin: 'Administrator', hariganga: 'Hariganga', cph: 'CPH' };
+const ROLE_LABEL = { admin: 'Administrator', hariganga: 'Hariganga', cph: 'CPH', viewer: 'View only' };
 
 const MAIN_NAV = [
   { to: '/', label: 'Areas', icon: LayoutGrid, end: true },

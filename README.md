@@ -86,16 +86,20 @@ Open http://localhost:5173 and sign in with one of the seeded accounts.
 
 ## Roles & permissions
 
-| Capability                          | Admin | Hariganga | CPH |
-| ----------------------------------- | :---: | :-------: | :-: |
-| View areas / dashboard / sign-off   |  ✓   |    ✓     | ✓  |
-| Set item status & remarks           |  ✓   | assigned sections only | assigned sections only |
-| Set **Phase 2** / **Dropped** status |  ✓   |          |    |
-| Add custom "Other" items            |  ✓   | assigned sections only | assigned sections only |
-| Finalise the handover record        |  ✓   |    ✓     | ✓  |
-| Create / edit / delete users        |  ✓   |          |    |
-| Assign sections to users            |  ✓   |          |    |
-| View the change audit + daily log   |  ✓   |          |    |
+| Capability                          | Admin | Hariganga | CPH | View only |
+| ----------------------------------- | :---: | :-------: | :-: | :-------: |
+| View areas / dashboard / sign-off   |  ✓   |    ✓     | ✓  |    ✓     |
+| Set item status & remarks           |  ✓   | assigned sections only | assigned sections only |    |
+| Set **Phase 2** / **Dropped** status |  ✓   |          |    |          |
+| Add custom "Other" items            |  ✓   | assigned sections only | assigned sections only |    |
+| Finalise the handover record        |  ✓   |    ✓     | ✓  |          |
+| Create / edit / delete users        |  ✓   |          |    |          |
+| Assign sections to users            |  ✓   |          |    |          |
+| View the change audit + daily log   |  ✓   |          |    |          |
+
+> **View only** (`viewer`) is a read-only account: it can browse every area,
+> the dashboard, and the sign-off sheet, but cannot change any item, add custom
+> items, sign off, or finalise the record. It is never assigned sections.
 
 ### Completion ("100%")
 

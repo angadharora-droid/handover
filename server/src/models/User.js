@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export const ROLE_VALUES = ['admin', 'hariganga', 'cph'];
+// 'viewer' is a read-only account: it can see every screen but cannot change
+// any item, sign-off, custom item, or finalise the record.
+export const ROLE_VALUES = ['admin', 'hariganga', 'cph', 'viewer'];
 
 const userSchema = new mongoose.Schema(
   {

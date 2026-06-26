@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { Trash2, UserPlus, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Trash2, UserPlus, ChevronDown, ChevronRight, ShieldCheck, Eye } from 'lucide-react';
 import {
   useUsers,
   useChecklist,
@@ -16,13 +16,19 @@ const ROLES = [
   { val: 'admin', label: 'Administrator' },
   { val: 'hariganga', label: 'Hariganga' },
   { val: 'cph', label: 'CPH' },
+  { val: 'viewer', label: 'View only' },
 ];
 
 const ROLE_TONE = {
   admin: 'bg-maroon-light text-maroon',
   hariganga: 'bg-indigo-50 text-indigo-700',
   cph: 'bg-sky-50 text-sky-700',
+  viewer: 'bg-stone-100 text-stone-600',
 };
+
+// Roles that don't use per-section assignment: admins edit everything,
+// viewers edit nothing.
+const NO_SECTIONS = new Set(['admin', 'viewer']);
 
 const EMPTY = { name: '', email: '', password: '', role: 'cph', designation: '', assignedAreas: [] };
 
@@ -85,13 +91,13 @@ export default function Users() {
   if (error) return <ErrorBox error={error} />;
 
   const areas = cl ? Object.keys(cl.checklist) : [];
-  const isAdminRole = form.role === 'admin';
+  const noSections = NO_SECTIONS.has(form.role);
 
   const onCreate = async (e) => {
     e.preventDefault();
     setFormError('');
     try {
-      await createUser.mutateAsync({ ...form, assignedAreas: isAdminRole ? [] : form.assignedAreas });
+      await createUser.mutateAsync({ ...form, assignedAreas: noSections ? [] : form.assignedAreas });
       setForm(EMPTY);
     } catch (err) {
       setFormError(apiError(err, 'Could not create user'));
@@ -171,9 +177,18 @@ export default function Users() {
           </button>
         </div>
 
-        {isAdminRole ? (
+        {noSections ? (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-stone-500">
-            <ShieldCheck className="h-3.5 w-3.5 text-maroon" /> Administrators can update every section.
+            {form.role === 'viewer' ? (
+              <>
+                <Eye className="h-3.5 w-3.5 text-stone-500" /> View-only users can see every screen but
+                cannot make any changes.
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-3.5 w-3.5 text-maroon" /> Administrators can update every section.
+              </>
+            )}
           </div>
         ) : (
           <div className="mt-3">
@@ -206,7 +221,7 @@ export default function Users() {
           <tbody className="divide-y divide-stone-100">
             {users.map((u) => {
               const isMe = u.id === me.id;
-              const isAdmin = u.role === 'admin';
+              const noSections = NO_SECTIONS.has(u.role);
               const open = expanded === u.id;
               const count = (u.assignedAreas || []).length;
               return (
@@ -237,8 +252,10 @@ export default function Users() {
                       </select>
                     </td>
                     <td className="px-4 py-3">
-                      {isAdmin ? (
+                      {u.role === 'admin' ? (
                         <span className="text-xs text-stone-400">All sections</span>
+                      ) : u.role === 'viewer' ? (
+                        <span className="text-xs text-stone-400">View only</span>
                       ) : (
                         <button
                           onClick={() => setExpanded(open ? null : u.id)}
@@ -282,7 +299,7 @@ export default function Users() {
                       )}
                     </td>
                   </tr>
-                  {open && !isAdmin && (
+                  {open && !noSections && (
                     <tr className="bg-stone-50/60">
                       <td colSpan={6} className="px-4 py-3">
                         <SectionPicker
