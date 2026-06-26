@@ -60,8 +60,16 @@ function buildNameLookup(checklist, customItems) {
 
 // Group the entries by area (in the checklist's canonical order) for the report.
 // Each item carries its resolved name, status, remark and who/when.
-function collectAreas(checklist, entries, keywords, customItems) {
+function collectAreas(checklist, entries, keywords, customItems, statusOrder) {
   const nameLookup = buildNameLookup(checklist, customItems);
+
+  // Rank each status by the canonical order (accepted, pending-install, …) so
+  // items within an area are listed in that sequence.
+  const rank = {};
+  (statusOrder || []).forEach((s, i) => {
+    rank[s] = i;
+  });
+  const statusRank = (s) => (s in rank ? rank[s] : 999);
 
   const byArea = {};
   const immediate = [];
@@ -74,6 +82,8 @@ function collectAreas(checklist, entries, keywords, customItems) {
 
   const sortItems = (list) =>
     list.slice().sort((a, b) => {
+      const sr = statusRank(a.status) - statusRank(b.status);
+      if (sr !== 0) return sr;
       const ra = a.room || '';
       const rb = b.room || '';
       if (ra !== rb) return ra.localeCompare(rb, undefined, { numeric: true });
@@ -202,7 +212,8 @@ export default function Signoff() {
       checklist,
       filtered,
       cl.immediateKeywords,
-      customItems
+      customItems,
+      cl.statusOrder
     );
 
     let dateLabel = 'All dates';
