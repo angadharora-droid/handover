@@ -59,6 +59,11 @@ router.post('/final', async (req, res) => {
   const h = await getCurrentHandover();
   if (!h) return res.status(400).json({ error: 'No handover found. Run the seed script.' });
 
+  // View-only accounts can read the sign-off sheet but cannot finalise it.
+  if (req.user.role === 'viewer') {
+    return res.status(403).json({ error: 'View-only accounts cannot finalise the record' });
+  }
+
   const { hariganga, cph } = req.body || {};
   if (!hariganga?.name || !cph?.name) {
     return res.status(400).json({ error: 'Both signatory names are required' });

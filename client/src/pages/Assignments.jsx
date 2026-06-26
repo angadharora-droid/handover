@@ -3,7 +3,7 @@ import { useChecklist, useUsers, useAssignArea } from '../lib/queries';
 import { PageHeader, LoadingScreen, EmptyState } from '../components/ui';
 import { ErrorBox } from './Home';
 
-const ROLE_LABEL = { admin: 'Admin', hariganga: 'Hariganga', cph: 'CPH' };
+const ROLE_LABEL = { admin: 'Admin', hariganga: 'Hariganga', cph: 'CPH', viewer: 'View only' };
 
 export default function Assignments() {
   const { data: cl, isLoading: l1, error: e1 } = useChecklist();
@@ -14,7 +14,9 @@ export default function Assignments() {
   if (e1 || e2) return <ErrorBox error={e1 || e2} />;
 
   const areas = Object.keys(cl.checklist);
-  const columns = users.filter((u) => u.role !== 'admin' && u.active);
+  // Admins edit everything and viewers edit nothing, so neither needs a column
+  // in the per-section assignment matrix.
+  const columns = users.filter((u) => u.role !== 'admin' && u.role !== 'viewer' && u.active);
 
   const toggle = (area, userId) => {
     const current = users.filter((u) => (u.assignedAreas || []).includes(area)).map((u) => u.id);

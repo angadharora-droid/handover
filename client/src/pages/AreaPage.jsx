@@ -42,6 +42,7 @@ export default function AreaPage() {
   const editable = canEditArea(user, area);
   const readOnly = finalised || !editable;
   const isAdmin = user?.role === 'admin';
+  const isViewer = user?.role === 'viewer';
   const roomCat = isRooms ? def.floors.find((f) => f.num === room)?.cat : null;
   const progress = getAreaProgress(checklist, area, map, customMap);
 
@@ -73,8 +74,10 @@ export default function AreaPage() {
         <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            <strong className="font-semibold">Read-only.</strong> You are not assigned to this
-            section. Ask an administrator to assign you to update items here.
+            <strong className="font-semibold">Read-only.</strong>{' '}
+            {isViewer
+              ? 'Your account has view-only access — you can browse every section but cannot make changes.'
+              : 'You are not assigned to this section. Ask an administrator to assign you to update items here.'}
           </span>
         </div>
       )}
