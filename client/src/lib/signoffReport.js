@@ -166,10 +166,12 @@ export function buildSignoffReportHtml({
   .doc-kind { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
   .meta { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: 12px; color: var(--muted); margin-bottom: 22px; }
   .meta b { color: var(--ink); font-weight: 600; }
-  .block { border: 1px solid #ececec; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  /* No overflow:hidden — it makes the section unbreakable in print and leaves
+     big blank gaps. Round the header corners directly instead. */
+  .block { border: 1px solid #ececec; border-radius: 12px; margin-bottom: 16px; }
   .block-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 14px; border-bottom: 1px solid; }
+    padding: 9px 14px; border-bottom: 1px solid; border-radius: 11px 11px 0 0; }
   .block-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .count { background: rgba(255,255,255,.7); border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 700; }
@@ -215,9 +217,11 @@ export function buildSignoffReportHtml({
     .toolbar { display: none !important; }
     .sheet { padding: 0 !important; margin: 0 !important; max-width: none !important; }
     header { break-after: avoid; }
-    .area-group, .final { break-inside: avoid; }
+    /* Don't force whole groups onto a new page (that leaves big blank gaps);
+       only keep individual rows intact and avoid orphaning an area label. */
     .area-label { break-after: avoid; }
     tr { break-inside: avoid; }
+    .final { break-inside: avoid; }
   }
 </style>
 </head>
