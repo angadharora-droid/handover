@@ -43,6 +43,55 @@ function collect(checklist, entries, keywords, customItems) {
   return { byStatus, immediate };
 }
 
+// Build a name lookup keyed by `area::itemId` from the template + custom items,
+// so every entry can be shown with its real item name (not the bare id code).
+function buildNameLookup(checklist, customItems) {
+  const lookup = {};
+  Object.keys(checklist).forEach((area) => {
+    getItems(checklist, area).forEach((it) => {
+      lookup[`${area}::${it.id}`] = it.name;
+    });
+  });
+  (customItems || []).forEach((c) => {
+    lookup[`${c.area}::${c.id}`] = c.name;
+  });
+  return lookup;
+}
+
+// Group the entries by area (in the checklist's canonical order) for the report.
+// Each item carries its resolved name, status, remark and who/when.
+function collectAreas(checklist, entries, keywords, customItems) {
+  const nameLookup = buildNameLookup(checklist, customItems);
+
+  const byArea = {};
+  const immediate = [];
+  (entries || []).forEach((e) => {
+    if (!e.status) return;
+    const rec = { ...e, item: nameLookup[`${e.area}::${e.itemId}`] || e.itemId };
+    (byArea[e.area] ||= []).push(rec);
+    if (e.remarks && isImmediateAction(e.remarks, keywords)) immediate.push(rec);
+  });
+
+  const sortItems = (list) =>
+    list.slice().sort((a, b) => {
+      const ra = a.room || '';
+      const rb = b.room || '';
+      if (ra !== rb) return ra.localeCompare(rb, undefined, { numeric: true });
+      return String(a.itemId).localeCompare(String(b.itemId), undefined, { numeric: true });
+    });
+
+  const order = Object.keys(checklist);
+  const areas = order
+    .filter((a) => (byArea[a] || []).length)
+    .map((area) => ({ area, items: sortItems(byArea[area]) }));
+  // Safety: append any areas not present in the template (e.g. renamed sections).
+  Object.keys(byArea).forEach((a) => {
+    if (!order.includes(a)) areas.push({ area: a, items: sortItems(byArea[a]) });
+  });
+
+  return { areas, immediate };
+}
+
 // Keep only entries last updated within [from, to] (inclusive, local time) and,
 // when a user is chosen, only that user's entries. Empty bounds = unbounded.
 function filterEntries(entries, { from, to, userId }) {
@@ -149,7 +198,7 @@ export default function Signoff() {
     // Non-admins always export their own work; admins choose (blank = everyone).
     const effectiveUserId = isAdmin ? reportUserId : user?.id;
     const filtered = filterEntries(entries, { from: fromDate, to: toDate, userId: effectiveUserId });
-    const { byStatus: repByStatus, immediate: repImmediate } = collect(
+    const { areas: repAreas, immediate: repImmediate } = collectAreas(
       checklist,
       filtered,
       cl.immediateKeywords,
@@ -170,9 +219,8 @@ export default function Signoff() {
 
     downloadSignoffReport({
       handover,
-      byStatus: repByStatus,
+      areas: repAreas,
       immediate: repImmediate,
-      statusOrder: cl.statusOrder,
       existing,
       finalised,
       filterSummary: { dateLabel, userLabel },
