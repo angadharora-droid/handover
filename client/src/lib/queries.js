@@ -32,10 +32,11 @@ export function useFinalSignoff() {
   });
 }
 
-export function useUsers() {
+export function useUsers({ enabled = true } = {}) {
   return useQuery({
     queryKey: ['users'],
     queryFn: () => api.get('/users').then((r) => r.data.users),
+    enabled,
   });
 }
 

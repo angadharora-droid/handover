@@ -36,6 +36,7 @@ function serialize(e) {
     itemId: e.itemId,
     status: e.status,
     remarks: e.remarks,
+    updatedBy: e.updatedBy, // user id — lets the client filter a report by author
     updatedByName: e.updatedByName,
     updatedAt: e.updatedAt,
   };

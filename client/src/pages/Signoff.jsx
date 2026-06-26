@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, Check, ClipboardList } from 'lucide-react';
+import { AlertTriangle, Info, Check, ClipboardList, Download } from 'lucide-react';
 import {
   useChecklist,
   useEntries,
@@ -7,11 +7,13 @@ import {
   useFinalise,
   useHandover,
   useCustomItems,
+  useUsers,
 } from '../lib/queries';
 import { getItems, isImmediateAction } from '../lib/checklist';
 import { STATUS_LABEL, STATUS_SECTION, STATUS_COLOR } from '../lib/statusStyles';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../lib/format';
+import { downloadSignoffReport } from '../lib/signoffReport';
 import { apiError } from '../lib/api';
 import { PageHeader, LoadingScreen, EmptyState } from '../components/ui';
 import { ErrorBox } from './Home';
@@ -39,6 +41,29 @@ function collect(checklist, entries, keywords, customItems) {
     if (e.remarks && isImmediateAction(e.remarks, keywords)) immediate.push(rec);
   });
   return { byStatus, immediate };
+}
+
+// Keep only entries last updated within [from, to] (inclusive, local time) and,
+// when a user is chosen, only that user's entries. Empty bounds = unbounded.
+function filterEntries(entries, { from, to, userId }) {
+  const start = from ? new Date(`${from}T00:00:00`) : null;
+  const end = to ? new Date(`${to}T23:59:59.999`) : null;
+  return (entries || []).filter((e) => {
+    if (userId && String(e.updatedBy || '') !== String(userId)) return false;
+    if (start || end) {
+      const t = e.updatedAt ? new Date(e.updatedAt) : null;
+      if (!t || Number.isNaN(t.getTime())) return false;
+      if (start && t < start) return false;
+      if (end && t > end) return false;
+    }
+    return true;
+  });
+}
+
+function formatDay(value) {
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function RowLine({ rec }) {
@@ -69,6 +94,9 @@ export default function Signoff() {
   const finalise = useFinalise();
   const { user } = useAuth();
 
+  const isAdmin = user?.role === 'admin';
+  const { data: users } = useUsers({ enabled: isAdmin });
+
   const finalised = !!handover?.finalised;
   const existing = finalData?.finalSignoff;
   const isViewer = user?.role === 'viewer';
@@ -77,6 +105,12 @@ export default function Signoff() {
   const [cph, setCph] = useState({ name: '', designation: '' });
   const [formError, setFormError] = useState('');
   const [touched, setTouched] = useState(false);
+
+  // Download-report filters. Non-admins are locked to their own entries; admins
+  // may pick any user (or all). Empty date bounds mean "all dates".
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [reportUserId, setReportUserId] = useState('');
 
   // Prefill from the existing record or the logged-in user (once).
   useEffect(() => {
@@ -103,6 +137,41 @@ export default function Signoff() {
   const nextVisit = byStatus['next-visit'] || [];
   const hasAny = Object.values(byStatus).some((l) => l.length);
 
+  const onDownload = () => {
+    // Non-admins always export their own work; admins choose (blank = everyone).
+    const effectiveUserId = isAdmin ? reportUserId : user?.id;
+    const filtered = filterEntries(entries, { from: fromDate, to: toDate, userId: effectiveUserId });
+    const { byStatus: repByStatus, immediate: repImmediate } = collect(
+      checklist,
+      filtered,
+      cl.immediateKeywords,
+      customItems
+    );
+
+    let dateLabel = 'All dates';
+    if (fromDate && toDate) {
+      dateLabel = fromDate === toDate ? formatDay(fromDate) : `${formatDay(fromDate)} – ${formatDay(toDate)}`;
+    } else if (fromDate) dateLabel = `From ${formatDay(fromDate)}`;
+    else if (toDate) dateLabel = `Up to ${formatDay(toDate)}`;
+
+    let userLabel = 'All users';
+    if (!isAdmin) userLabel = user?.name || 'Your entries';
+    else if (reportUserId) {
+      userLabel = (users || []).find((u) => String(u.id) === String(reportUserId))?.name || 'Selected user';
+    }
+
+    downloadSignoffReport({
+      handover,
+      byStatus: repByStatus,
+      immediate: repImmediate,
+      statusOrder: cl.statusOrder,
+      existing,
+      finalised,
+      filterSummary: { dateLabel, userLabel },
+      generatedAt: formatDateTime(new Date()),
+    });
+  };
+
   const onFinalise = async () => {
     setFormError('');
     if (!hga.name.trim() || !cph.name.trim()) {
@@ -121,6 +190,76 @@ export default function Signoff() {
       <PageHeader title="Visit Sign-Off Sheet" subtitle="Centre Point Amravati · Official Record" />
 
       <div className="space-y-4">
+        {/* Download report */}
+        <div className="card p-5">
+          <div className="text-sm font-semibold text-ink">Download Report</div>
+          <p className="mb-4 mt-0.5 text-xs text-stone-500">
+            Export the sign-off sheet as a printable PDF.{' '}
+            {isAdmin
+              ? 'Filter by date range and user, or leave blank for the full record.'
+              : 'Filter by date range — the report covers your own entries.'}
+          </p>
+          <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="input-label">From date</div>
+              <input
+                type="date"
+                className="field"
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="input-label">To date</div>
+              <input
+                type="date"
+                className="field"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            {isAdmin ? (
+              <div>
+                <div className="input-label">User</div>
+                <select
+                  className="field"
+                  value={reportUserId}
+                  onChange={(e) => setReportUserId(e.target.value)}
+                >
+                  <option value="">All users</option>
+                  {(users || []).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <div className="input-label">User</div>
+                <input className="field bg-stone-50 text-stone-500" value={user?.name || ''} disabled />
+              </div>
+            )}
+            <button onClick={onDownload} className="btn btn-primary">
+              <Download className="h-4 w-4" /> Download
+            </button>
+          </div>
+          {(fromDate || toDate || reportUserId) && (
+            <button
+              onClick={() => {
+                setFromDate('');
+                setToDate('');
+                setReportUserId('');
+              }}
+              className="mt-3 text-xs font-medium text-maroon hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
         {/* Immediate actions */}
         {immediate.length > 0 && (
           <div className="overflow-hidden rounded-2xl border border-maroon/20 bg-maroon-light">
