@@ -66,6 +66,14 @@ function formatDay(value) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Today's local date as a YYYY-MM-DD string (matches the <input type="date"> value).
+function todayStr() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function RowLine({ rec }) {
   return (
     <div className="py-2.5">
@@ -193,12 +201,32 @@ export default function Signoff() {
         {/* Download report */}
         <div className="card p-5">
           <div className="text-sm font-semibold text-ink">Download Report</div>
-          <p className="mb-4 mt-0.5 text-xs text-stone-500">
+          <p className="mb-3 mt-0.5 text-xs text-stone-500">
             Export the sign-off sheet as a printable PDF.{' '}
             {isAdmin
               ? 'Filter by date range and user, or leave blank for the full record.'
               : 'Filter by date range — the report covers your own entries.'}
           </p>
+          {(() => {
+            const today = todayStr();
+            const isToday = fromDate === today && toDate === today;
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate(today);
+                  setToDate(today);
+                }}
+                className={`mb-4 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  isToday
+                    ? 'border-maroon bg-maroon text-white'
+                    : 'border-stone-200 text-stone-600 hover:border-maroon/40 hover:text-maroon'
+                }`}
+              >
+                Today
+              </button>
+            );
+          })()}
           <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <div className="input-label">From date</div>
