@@ -58,48 +58,53 @@ function buildNameLookup(checklist, customItems) {
   return lookup;
 }
 
-// Group the entries by area (in the checklist's canonical order) for the report.
-// Each item carries its resolved name, status, remark and who/when.
-function collectAreas(checklist, entries, keywords, customItems, statusOrder) {
+// Group the entries by status (accepted, pending-install, …) and, inside each
+// status, by area (in the checklist's canonical order) for the report.
+function collectStatusAreas(checklist, entries, keywords, customItems, statusOrder) {
   const nameLookup = buildNameLookup(checklist, customItems);
 
-  // Rank each status by the canonical order (accepted, pending-install, …) so
-  // items within an area are listed in that sequence.
-  const rank = {};
-  (statusOrder || []).forEach((s, i) => {
-    rank[s] = i;
+  const areaOrder = Object.keys(checklist);
+  const areaIndex = {};
+  areaOrder.forEach((a, i) => {
+    areaIndex[a] = i;
   });
-  const statusRank = (s) => (s in rank ? rank[s] : 999);
 
-  const byArea = {};
+  // status -> area -> items
+  const map = {};
   const immediate = [];
   (entries || []).forEach((e) => {
     if (!e.status) return;
     const rec = { ...e, item: nameLookup[`${e.area}::${e.itemId}`] || e.itemId };
-    (byArea[e.area] ||= []).push(rec);
+    ((map[e.status] ||= {})[e.area] ||= []).push(rec);
     if (e.remarks && isImmediateAction(e.remarks, keywords)) immediate.push(rec);
   });
 
   const sortItems = (list) =>
     list.slice().sort((a, b) => {
-      const sr = statusRank(a.status) - statusRank(b.status);
-      if (sr !== 0) return sr;
       const ra = a.room || '';
       const rb = b.room || '';
       if (ra !== rb) return ra.localeCompare(rb, undefined, { numeric: true });
       return String(a.itemId).localeCompare(String(b.itemId), undefined, { numeric: true });
     });
 
-  const order = Object.keys(checklist);
-  const areas = order
-    .filter((a) => (byArea[a] || []).length)
-    .map((area) => ({ area, items: sortItems(byArea[area]) }));
-  // Safety: append any areas not present in the template (e.g. renamed sections).
-  Object.keys(byArea).forEach((a) => {
-    if (!order.includes(a)) areas.push({ area: a, items: sortItems(byArea[a]) });
+  // Statuses in the canonical order, then any unexpected extras.
+  const statusSeq = [...(statusOrder || [])];
+  Object.keys(map).forEach((s) => {
+    if (!statusSeq.includes(s)) statusSeq.push(s);
   });
 
-  return { areas, immediate };
+  const statuses = statusSeq
+    .filter((s) => map[s] && Object.keys(map[s]).length)
+    .map((status) => {
+      const areasObj = map[status];
+      const areas = Object.keys(areasObj)
+        .sort((a, b) => (areaIndex[a] ?? 999) - (areaIndex[b] ?? 999) || a.localeCompare(b))
+        .map((area) => ({ area, items: sortItems(areasObj[area]) }));
+      const count = areas.reduce((n, a) => n + a.items.length, 0);
+      return { status, areas, count };
+    });
+
+  return { statuses, immediate };
 }
 
 // Keep only entries last updated within [from, to] (inclusive, local time) and,
@@ -208,7 +213,7 @@ export default function Signoff() {
     // Non-admins always export their own work; admins choose (blank = everyone).
     const effectiveUserId = isAdmin ? reportUserId : user?.id;
     const filtered = filterEntries(entries, { from: fromDate, to: toDate, userId: effectiveUserId });
-    const { areas: repAreas, immediate: repImmediate } = collectAreas(
+    const { statuses: repStatuses, immediate: repImmediate } = collectStatusAreas(
       checklist,
       filtered,
       cl.immediateKeywords,
@@ -230,7 +235,7 @@ export default function Signoff() {
 
     downloadSignoffReport({
       handover,
-      areas: repAreas,
+      statuses: repStatuses,
       immediate: repImmediate,
       existing,
       finalised,

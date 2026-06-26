@@ -3,20 +3,13 @@
 // Kept dependency-free: everything (styles + the auto-print hook) is inlined
 // into the document, so the downloaded/printed file stands alone.
 
-import { STATUS_LABEL, STATUS_BADGE } from './statusStyles';
+import { STATUS_LABEL, STATUS_COLOR, STATUS_SECTION } from './statusStyles';
 import { formatDateTime } from './format';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
-}
-
-function statusPill(status) {
-  const c = STATUS_BADGE[status] || STATUS_BADGE[''];
-  return `<span class="pill" style="background:${c.bg};color:${c.text}">${esc(
-    STATUS_LABEL[status] || status || 'Not started'
-  )}</span>`;
 }
 
 function stampOf(rec) {
@@ -26,8 +19,7 @@ function stampOf(rec) {
     .join(' · ');
 }
 
-// A row inside an area section: the item NAME is primary, with its status,
-// room (for room areas) and any remark.
+// A row inside an area group: the item NAME is primary, with room + remark.
 function itemRowHtml(rec, idx) {
   const room = rec.room ? `<span class="room">Room ${esc(rec.room)}</span>` : '';
   const remark = rec.remarks ? `<div class="remark">“${esc(rec.remarks)}”</div>` : '';
@@ -39,7 +31,6 @@ function itemRowHtml(rec, idx) {
         ${room}
         ${remark}
       </td>
-      <td class="status-cell">${statusPill(rec.status)}</td>
       <td class="stamp">${stampOf(rec)}</td>
     </tr>`;
 }
@@ -60,21 +51,35 @@ function immediateRowHtml(rec, idx) {
     </tr>`;
 }
 
-// One section per area, listing every recorded item in that area.
-function areaSectionHtml({ area, items }) {
+// An area sub-group within a status section.
+function areaGroupHtml({ area, items }) {
+  return `
+    <div class="area-group">
+      <div class="area-label">${esc(area)}<span class="area-count">${items.length}</span></div>
+      <table><tbody>${items.map(itemRowHtml).join('')}</tbody></table>
+    </div>`;
+}
+
+// One section per status; inside it, the areas that have items in that status.
+function statusSectionHtml({ status, areas, count }) {
+  const color = STATUS_COLOR[status] || '#444441';
+  const section = STATUS_SECTION[status] || {};
   return `
     <section class="block">
-      <div class="block-head area-head">
-        <div class="block-title"><span class="dot"></span>${esc(area)}</div>
-        <span class="count">${items.length}</span>
+      <div class="block-head" style="background:${section.bg || '#f1efe8'};border-color:${section.border || '#ddd'}">
+        <div class="block-title" style="color:${color}">
+          <span class="dot" style="background:${color}"></span>
+          ${esc(STATUS_LABEL[status] || status)}
+          <span class="count" style="color:${color}">${count}</span>
+        </div>
       </div>
-      <table><tbody>${items.map(itemRowHtml).join('')}</tbody></table>
+      <div class="status-body">${areas.map(areaGroupHtml).join('')}</div>
     </section>`;
 }
 
 export function buildSignoffReportHtml({
   handover,
-  areas,
+  statuses,
   immediate,
   existing,
   finalised,
@@ -84,9 +89,9 @@ export function buildSignoffReportHtml({
   const title = handover?.name || 'Visit Sign-Off Sheet';
   const subParts = [handover?.code, handover?.location].filter(Boolean).map(esc).join(' · ');
 
-  const sections = (areas || []).map(areaSectionHtml).join('');
+  const sections = (statuses || []).map(statusSectionHtml).join('');
 
-  const totalItems = (areas || []).reduce((n, a) => n + a.items.length, 0);
+  const totalItems = (statuses || []).reduce((n, s) => n + s.count, 0);
 
   const immediateHtml = (immediate || []).length
     ? `
@@ -168,13 +173,20 @@ export function buildSignoffReportHtml({
   .block-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .count { background: rgba(255,255,255,.7); border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 700; }
-  /* Area section header — branded maroon tint. */
-  .area-head { background: #fbeff0; border-color: #f0b9b6; }
-  .area-head .block-title { color: var(--maroon); }
-  .area-head .dot { background: var(--maroon); }
-  .area-head .count { color: var(--maroon); }
+  /* Area sub-group inside a status section. */
+  .status-body { padding: 2px 0; }
+  .area-group { border-top: 1px solid #efece4; }
+  .area-group:first-child { border-top: 0; }
+  .area-label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px 3px; font-weight: 600; font-size: 12px; color: var(--maroon);
+  }
+  .area-count {
+    background: #f1efe8; color: #6b6a64; border-radius: 999px;
+    padding: 0 7px; font-size: 10px; font-weight: 700;
+  }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  td { padding: 8px 14px; border-top: 1px solid #f1efe8; vertical-align: top; font-size: 12.5px; word-break: break-word; }
+  td { padding: 7px 14px; border-top: 1px solid #f4f2ec; vertical-align: top; font-size: 12.5px; word-break: break-word; }
   tr:first-child td { border-top: 0; }
   td.num { width: 26px; color: #b4b2a9; font-variant-numeric: tabular-nums; }
   .item-name { font-weight: 600; color: var(--ink); }
@@ -184,11 +196,6 @@ export function buildSignoffReportHtml({
   }
   .where { font-size: 11px; color: var(--muted); margin-top: 3px; }
   .remark { font-style: italic; color: var(--muted); margin-top: 3px; }
-  td.status-cell { width: 122px; }
-  .pill {
-    display: inline-block; border-radius: 999px; padding: 2px 9px;
-    font-size: 10.5px; font-weight: 600; white-space: nowrap;
-  }
   td.stamp { width: 132px; text-align: right; color: #9a988f; font-size: 11px; }
   .immediate { border-color: #f0b9b6; }
   .empty { text-align: center; color: var(--muted); padding: 36px; border: 1px dashed #ddd; border-radius: 12px; }
@@ -208,7 +215,8 @@ export function buildSignoffReportHtml({
     .toolbar { display: none !important; }
     .sheet { padding: 0 !important; margin: 0 !important; max-width: none !important; }
     header { break-after: avoid; }
-    .block, .final { break-inside: avoid; }
+    .area-group, .final { break-inside: avoid; }
+    .area-label { break-after: avoid; }
     tr { break-inside: avoid; }
   }
 </style>
