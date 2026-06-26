@@ -127,10 +127,12 @@ export function buildSignoffReportHtml({
 <title>${esc(title)} — Sign-Off Report</title>
 <style>
   :root { --maroon:#6f0e13; --ink:#1c1b1a; --muted:#6b6a64; }
+  @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
   body {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    color: var(--ink); margin: 0; background: #f6f5f2; line-height: 1.45;
+    color: var(--ink); background: #f6f5f2; line-height: 1.45;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .sheet { max-width: 820px; margin: 0 auto; padding: 32px 36px 56px; background: #fff; }
@@ -153,14 +155,14 @@ export function buildSignoffReportHtml({
   .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .count { background: rgba(255,255,255,.7); border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 700; }
   .scope { background: var(--maroon); color: #fff; border-radius: 999px; padding: 2px 9px; font-size: 10.5px; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 8px 14px; border-top: 1px solid #f1efe8; vertical-align: top; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  td { padding: 8px 14px; border-top: 1px solid #f1efe8; vertical-align: top; font-size: 12.5px; word-break: break-word; }
   tr:first-child td { border-top: 0; }
-  td.num { width: 30px; color: #b4b2a9; font-variant-numeric: tabular-nums; }
+  td.num { width: 28px; color: #b4b2a9; font-variant-numeric: tabular-nums; }
   .where { font-weight: 600; }
   .item { color: #57564f; }
   .remark { font-style: italic; color: var(--muted); margin-top: 2px; }
-  td.stamp { width: 180px; text-align: right; color: #9a988f; font-size: 11px; white-space: nowrap; }
+  td.stamp { width: 150px; text-align: right; color: #9a988f; font-size: 11px; }
   .immediate { border-color: #f0b9b6; }
   .empty { text-align: center; color: var(--muted); padding: 36px; border: 1px dashed #ddd; border-radius: 12px; }
   .final { margin-top: 28px; border-top: 2px solid #ececec; padding-top: 18px; }
@@ -175,10 +177,12 @@ export function buildSignoffReportHtml({
   .sig-desig { font-size: 11px; color: var(--muted); margin-top: 3px; }
   footer { margin-top: 34px; font-size: 10.5px; color: #b4b2a9; text-align: center; }
   @media print {
-    body { background: #fff; }
-    .sheet { padding: 0; max-width: none; }
-    .toolbar { display: none; }
+    html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+    .toolbar { display: none !important; }
+    .sheet { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    header { break-after: avoid; }
     .block, .final { break-inside: avoid; }
+    tr { break-inside: avoid; }
   }
 </style>
 </head>
