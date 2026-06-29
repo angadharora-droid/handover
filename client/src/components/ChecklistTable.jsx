@@ -5,7 +5,7 @@ import { staticItems, getEntry, ADMIN_ONLY_STATUSES } from '../lib/checklist';
 import { STATUS_BADGE, STATUS_LABEL } from '../lib/statusStyles';
 import { formatDateTime } from '../lib/format';
 import { apiError } from '../lib/api';
-import PhotoStrip from './PhotoStrip';
+import PhotoControl from './PhotoControl';
 
 function ItemRow({ item, entry, statusOptions, disabled, isAdmin, area, room, photos, onSave, onDelete }) {
   const [status, setStatus] = useState(entry.status || '');
@@ -45,7 +45,7 @@ function ItemRow({ item, entry, statusOptions, disabled, isAdmin, area, room, ph
   const badge = STATUS_BADGE[status] || STATUS_BADGE[''];
 
   return (
-    <div className="-mx-2 grid gap-3 rounded-lg border-b border-stone-100 px-2 py-3 transition last:border-b-0 hover:bg-stone-50/70 sm:grid-cols-[1fr_13rem_1.1fr]">
+    <div className="-mx-2 grid gap-3 rounded-lg border-b border-stone-100 px-2 py-3 transition last:border-b-0 hover:bg-stone-50/70 sm:grid-cols-[1fr_13rem_1.1fr_6.5rem]">
       {/* Item info */}
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
@@ -108,13 +108,10 @@ function ItemRow({ item, entry, statusOptions, disabled, isAdmin, area, room, ph
         />
       </div>
 
-      {/* Photos (optional) — spans the full row width. Hidden entirely when the
-          row is read-only and carries no photos, so it adds no empty gap. */}
-      {(!disabled || photos.length > 0) && (
-        <div className="sm:col-span-full">
-          <PhotoStrip area={area} room={room} itemId={item.id} photos={photos} disabled={disabled} />
-        </div>
-      )}
+      {/* Photo (optional) — to the right of remarks */}
+      <div>
+        <PhotoControl area={area} room={room} itemId={item.id} photos={photos} disabled={disabled} />
+      </div>
     </div>
   );
 }
@@ -181,10 +178,11 @@ export default function ChecklistTable({
 
   return (
     <div>
-      <div className="hidden grid-cols-[1fr_13rem_1.1fr] gap-3 border-b-2 border-stone-200 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400 sm:grid">
+      <div className="hidden grid-cols-[1fr_13rem_1.1fr_6.5rem] gap-3 border-b-2 border-stone-200 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400 sm:grid">
         <div>Item</div>
         <div>Status</div>
         <div>Remarks</div>
+        <div className="text-right">Photo</div>
       </div>
 
       {items.map((item) => (
