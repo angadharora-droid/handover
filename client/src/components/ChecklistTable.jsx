@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useSaveEntry, useAddCustomItem, useDeleteCustomItem } from '../lib/queries';
+import { useSaveEntry, useAddCustomItem, useDeleteCustomItem, usePhotos } from '../lib/queries';
 import { staticItems, getEntry, ADMIN_ONLY_STATUSES } from '../lib/checklist';
 import { STATUS_BADGE, STATUS_LABEL } from '../lib/statusStyles';
 import { formatDateTime } from '../lib/format';
 import { apiError } from '../lib/api';
+import PhotoStrip from './PhotoStrip';
 
-function ItemRow({ item, entry, statusOptions, disabled, isAdmin, onSave, onDelete }) {
+function ItemRow({ item, entry, statusOptions, disabled, isAdmin, area, room, photos, onSave, onDelete }) {
   const [status, setStatus] = useState(entry.status || '');
   const [remarks, setRemarks] = useState(entry.remarks || '');
   const [meta, setMeta] = useState({ updatedAt: entry.updatedAt, by: entry.updatedByName });
@@ -106,6 +107,14 @@ function ItemRow({ item, entry, statusOptions, disabled, isAdmin, onSave, onDele
           onBlur={onRemarksBlur}
         />
       </div>
+
+      {/* Photos (optional) — spans the full row width. Hidden entirely when the
+          row is read-only and carries no photos, so it adds no empty gap. */}
+      {(!disabled || photos.length > 0) && (
+        <div className="sm:col-span-full">
+          <PhotoStrip area={area} room={room} itemId={item.id} photos={photos} disabled={disabled} />
+        </div>
+      )}
     </div>
   );
 }
@@ -157,11 +166,18 @@ export default function ChecklistTable({
 }) {
   const saveEntry = useSaveEntry();
   const deleteItem = useDeleteCustomItem();
+  const { data: photos } = usePhotos(area, room);
 
   const onSave = ({ itemId, status, remarks }) =>
     saveEntry.mutateAsync({ area, room: room || null, itemId, status, remarks });
 
   const items = [...staticItems(checklist, area), ...customItems];
+
+  // Group this area/room's photos by the item they belong to.
+  const photosByItem = {};
+  (photos || []).forEach((p) => {
+    (photosByItem[p.itemId] ||= []).push(p);
+  });
 
   return (
     <div>
@@ -179,6 +195,9 @@ export default function ChecklistTable({
           statusOptions={statusOptions}
           disabled={disabled}
           isAdmin={isAdmin}
+          area={area}
+          room={room}
+          photos={photosByItem[item.id] || []}
           onSave={onSave}
           onDelete={
             item.isCustom

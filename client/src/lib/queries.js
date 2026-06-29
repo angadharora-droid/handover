@@ -65,6 +65,28 @@ export function useCustomItems() {
   });
 }
 
+// Photo metadata + thumbnails for one area/room (the client groups by itemId).
+export function usePhotos(area, room) {
+  return useQuery({
+    queryKey: ['photos', area, room || null],
+    queryFn: () =>
+      api
+        .get('/photos', { params: { area, room: room || undefined } })
+        .then((r) => r.data.photos),
+    enabled: !!area,
+  });
+}
+
+// Full image (data URL) for a single photo — loaded only when viewed.
+export function usePhotoFull(id) {
+  return useQuery({
+    queryKey: ['photo', id],
+    queryFn: () => api.get(`/photos/${id}`).then((r) => r.data.photo),
+    enabled: !!id,
+    staleTime: Infinity, // image bytes never change once uploaded
+  });
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export function useSaveEntry() {
@@ -134,6 +156,24 @@ export function useDeleteCustomItem() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customItems'] });
       qc.invalidateQueries({ queryKey: ['entries'] });
+      qc.invalidateQueries({ queryKey: ['photos'] });
     },
+  });
+}
+
+export function useUploadPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => api.post('/photos', body).then((r) => r.data.photo),
+    onSuccess: (photo) =>
+      qc.invalidateQueries({ queryKey: ['photos', photo.area, photo.room || null] }),
+  });
+}
+
+export function useDeletePhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/photos/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['photos'] }),
   });
 }
