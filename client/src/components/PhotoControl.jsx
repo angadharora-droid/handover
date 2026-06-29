@@ -1,44 +1,137 @@
-import { useEffect, useRef, useState } from 'react';
-import { Camera, ImagePlus, X, Trash2, Loader2 } from 'lucide-react';
-import { useUploadPhoto, useDeletePhoto, usePhotoFull } from '../lib/queries';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Camera, ImagePlus, X, Trash2, Loader2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { useUploadPhoto, useDeletePhoto, usePhotoFull, photoFullQuery } from '../lib/queries';
 import { compressImage } from '../lib/image';
 import { formatDateTime } from '../lib/format';
 import { apiError } from '../lib/api';
 
-// Full-screen viewer for a single photo. The full image bytes are fetched
-// lazily (the list only ships thumbnails).
-function Lightbox({ id, onClose }) {
-  const { data, isLoading, error } = usePhotoFull(id);
+// Full-screen viewer for an item's photos. Opens on the clicked thumbnail and
+// lets you page through the rest (arrows, ←/→ keys). Full image bytes are
+// fetched lazily — the list only ships thumbnails — and neighbours are
+// prefetched so paging feels instant.
+function Lightbox({ photos, index, onClose }) {
+  const [i, setI] = useState(index);
+  const qc = useQueryClient();
+  const count = photos.length;
+  const hasNav = count > 1;
+  const photo = photos[i];
+  const { data, isLoading, error } = usePhotoFull(photo?.id);
+
+  const go = useCallback((delta) => setI((cur) => (cur + delta + count) % count), [count]);
+  const stop = (e) => e.stopPropagation();
+
+  // Esc to close, ←/→ to page, and lock background scroll while open.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft' && hasNav) go(-1);
+      else if (e.key === 'ArrowRight' && hasNav) go(1);
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose, go, hasNav]);
+
+  // Warm the cache for the photos either side of the current one.
+  useEffect(() => {
+    if (!hasNav) return;
+    for (const n of [i - 1, i + 1]) {
+      const neighbour = photos[(n + count) % count];
+      if (neighbour) qc.prefetchQuery(photoFullQuery(neighbour.id));
+    }
+  }, [i, hasNav, count, photos, qc]);
+
+  const caption = [data?.uploadedByName, data && formatDateTime(data.createdAt)]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-50 flex animate-fade-in flex-col bg-black/80 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-label="Photo viewer"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25"
-      >
-        <X className="h-5 w-5" />
-      </button>
-      <div className="max-h-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+      {/* Top bar: position counter + download / close. */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3" onClick={stop}>
+        <span className="text-xs font-medium tabular-nums text-white/60">
+          {hasNav ? `${i + 1} / ${count}` : 'Photo'}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {data?.data && (
+            <a
+              href={data.data}
+              download={`photo-${photo.id}.jpg`}
+              aria-label="Download photo"
+              title="Download"
+              className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25"
+            >
+              <Download className="h-5 w-5" />
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Stage: image scales to fit; clicking the letterbox margins closes. */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4">
+        {hasNav && (
+          <button
+            type="button"
+            onClick={(e) => { stop(e); go(-1); }}
+            aria-label="Previous photo"
+            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25 sm:left-4"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
         {isLoading && (
-          <div className="flex items-center gap-2 text-sm text-white/80">
+          <div className="flex items-center gap-2 text-sm text-white/80" onClick={stop}>
             <Loader2 className="h-5 w-5 animate-spin" /> Loading photo…
           </div>
         )}
-        {error && <div className="text-sm text-white/80">Could not load this photo.</div>}
-        {data && (
-          <figure className="text-center">
-            <img src={data.data} alt="Item photo" className="max-h-[80vh] w-auto rounded-lg shadow-2xl" />
-            <figcaption className="mt-2 text-xs text-white/70">
-              {[data.uploadedByName, formatDateTime(data.createdAt)].filter(Boolean).join(' · ')}
-            </figcaption>
-          </figure>
+        {error && !isLoading && (
+          <div className="text-sm text-white/80" onClick={stop}>Could not load this photo.</div>
         )}
+        {data?.data && (
+          <img
+            key={photo.id}
+            src={data.data}
+            alt="Item photo"
+            onClick={stop}
+            className="max-h-full max-w-full animate-fade-in rounded-lg object-contain shadow-2xl"
+          />
+        )}
+
+        {hasNav && (
+          <button
+            type="button"
+            onClick={(e) => { stop(e); go(1); }}
+            aria-label="Next photo"
+            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25 sm:right-4"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
+
+      {/* Caption: uploader + timestamp. */}
+      <div className="min-h-[1.25rem] px-4 py-3 text-center text-xs text-white/70" onClick={stop}>
+        {caption}
       </div>
     </div>
   );
@@ -171,11 +264,11 @@ export default function PhotoControl({ area, room, itemId, photos = [], disabled
 
       {photos.length > 0 && (
         <div className="flex max-w-[8rem] flex-wrap gap-1.5 sm:justify-end">
-          {photos.map((p) => (
+          {photos.map((p, i) => (
             <div key={p.id} className="group relative">
               <button
                 type="button"
-                onClick={() => setViewing(p.id)}
+                onClick={() => setViewing(i)}
                 className="block h-9 w-9 overflow-hidden rounded-md border border-stone-200 bg-stone-50 transition hover:ring-2 hover:ring-maroon/30"
                 title={[p.uploadedByName, formatDateTime(p.createdAt)].filter(Boolean).join(' · ') || 'View photo'}
               >
@@ -198,7 +291,9 @@ export default function PhotoControl({ area, room, itemId, photos = [], disabled
 
       {error && <div className="text-[10px] font-medium text-maroon">{error}</div>}
 
-      {viewing && <Lightbox id={viewing} onClose={() => setViewing(null)} />}
+      {viewing !== null && (
+        <Lightbox photos={photos} index={viewing} onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 }
