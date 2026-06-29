@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Camera, ImagePlus, X, Trash2, Loader2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useUploadPhoto, useDeletePhoto, usePhotoFull, photoFullQuery } from '../lib/queries';
@@ -50,7 +51,11 @@ function Lightbox({ photos, index, onClose }) {
     .filter(Boolean)
     .join(' · ');
 
-  return (
+  // Rendered through a portal to <body>: a transformed ancestor (the page's
+  // `animate-fade-in` wrapper) would otherwise become the containing block for
+  // this `fixed` overlay, pinning it to the scrolled content instead of the
+  // viewport.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex animate-fade-in flex-col bg-black/80 backdrop-blur-sm"
       onClick={onClose}
@@ -133,7 +138,8 @@ function Lightbox({ photos, index, onClose }) {
       <div className="min-h-[1.25rem] px-4 py-3 text-center text-xs text-white/70" onClick={stop}>
         {caption}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
