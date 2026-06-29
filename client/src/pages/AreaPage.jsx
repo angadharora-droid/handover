@@ -43,7 +43,9 @@ export default function AreaPage() {
   const readOnly = finalised || !editable;
   const isAdmin = user?.role === 'admin';
   const isViewer = user?.role === 'viewer';
-  const roomCat = isRooms ? def.floors.find((f) => f.num === room)?.cat : null;
+  const roomDef = isRooms ? def.floors.find((f) => f.num === room) : null;
+  const roomCat = roomDef?.cat;
+  const roomClub = roomDef?.club;
   const progress = getAreaProgress(checklist, area, map, customMap);
 
   return (
@@ -99,6 +101,7 @@ export default function AreaPage() {
         {isRooms && room && (
           <div className="mb-4 inline-flex items-center gap-2 rounded-lg bg-maroon-light px-3 py-1.5 text-sm font-semibold text-maroon">
             Room {room}
+            {roomClub && <span title="Club room">*</span>}
             <span className="font-normal text-maroon/60">· {roomCat}</span>
           </div>
         )}

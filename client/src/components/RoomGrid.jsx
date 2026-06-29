@@ -16,9 +16,12 @@ export default function RoomGrid({ checklist, area, selected, onSelect, entriesM
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-amber-400" /> In progress
           </span>
+          <span className="flex items-center gap-1">
+            <span className="font-semibold text-maroon">*</span> Club
+          </span>
         </div>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
         {floors.map((f) => {
           const p = getRoomProgress(checklist, area, f.num, entriesMap, customMap);
           const isSel = selected === f.num;
@@ -30,15 +33,16 @@ export default function RoomGrid({ checklist, area, selected, onSelect, entriesM
             <button
               key={f.num}
               onClick={() => onSelect(f.num)}
-              title={`${f.cat} · ${p.pct}% complete`}
-              className={`rounded-lg border px-1 py-2 text-center text-xs font-semibold tnum transition active:scale-95 ${tone}`}
+              title={`${f.num} · ${f.cat}${f.club ? ' (Club)' : ''} · ${p.pct}% complete`}
+              className={`flex flex-col rounded-lg border px-1.5 py-1.5 text-center transition active:scale-95 ${tone}`}
             >
-              {f.num}
-              {f.cat !== 'Standard' && (
-                <span className="ml-0.5 align-super text-[8px]">
-                  {f.cat.includes('Club') ? '◆' : '★'}
-                </span>
-              )}
+              <span className="text-sm font-semibold tnum">
+                {f.num}
+                {f.club && <span className="ml-0.5 align-super text-[9px]">*</span>}
+              </span>
+              <span className="mt-0.5 line-clamp-2 text-[9.5px] font-medium leading-tight opacity-80">
+                {f.cat}
+              </span>
             </button>
           );
         })}
