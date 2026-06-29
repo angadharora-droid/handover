@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { CustomItem } from '../models/CustomItem.js';
 import { Entry } from '../models/Entry.js';
+import { Photo } from '../models/Photo.js';
 import { getCurrentHandover } from '../utils/handover.js';
 import { CHECKLIST, isRoomArea, isValidRoom } from '../data/checklist.js';
 import { canEditArea } from './entries.js';
@@ -64,9 +65,10 @@ router.delete('/:id', async (req, res) => {
     return res.status(403).json({ error: 'You are not assigned to this section' });
   }
 
-  // Remove the item and any saved state attached to it.
+  // Remove the item and any saved state / photos attached to it.
   await CustomItem.deleteOne({ _id: item._id });
   await Entry.deleteOne({ handover: h._id, area: item.area, room: item.room, itemId: String(item._id) });
+  await Photo.deleteMany({ handover: h._id, area: item.area, room: item.room, itemId: String(item._id) });
   res.json({ ok: true });
 });
 

@@ -15,6 +15,7 @@ import handoverRoutes from './routes/handover.js';
 import assignmentRoutes from './routes/assignments.js';
 import auditRoutes from './routes/audit.js';
 import customItemRoutes from './routes/customItems.js';
+import photoRoutes from './routes/photos.js';
 
 const app = express();
 
@@ -36,7 +37,9 @@ app.use(
     },
   })
 );
-app.use(express.json());
+// Raised from the 100kb default so item photos (compressed JPEG data URLs,
+// uploaded one at a time) fit comfortably in a single request body.
+app.use(express.json({ limit: '15mb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -49,6 +52,7 @@ app.use('/api/handover', handoverRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/custom-items', customItemRoutes);
+app.use('/api/photos', photoRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
