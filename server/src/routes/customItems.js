@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Router } from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { CustomItem } from '../models/CustomItem.js';
@@ -59,6 +60,7 @@ router.delete('/:id', async (req, res) => {
   const h = await getCurrentHandover();
   if (!h) return res.status(400).json({ error: 'No handover found. Run the seed script.' });
 
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Item not found' });
   const item = await CustomItem.findOne({ _id: req.params.id, handover: h._id });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   if (!canEditArea(req.user, item.area)) {

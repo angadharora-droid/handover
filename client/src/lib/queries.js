@@ -77,14 +77,20 @@ export function usePhotos(area, room) {
   });
 }
 
-// Full image (data URL) for a single photo — loaded only when viewed.
-export function usePhotoFull(id) {
-  return useQuery({
+// Query options for one full photo — shared by the hook and by prefetching
+// adjacent photos in the viewer, so the two never drift.
+export function photoFullQuery(id) {
+  return {
     queryKey: ['photo', id],
     queryFn: () => api.get(`/photos/${id}`).then((r) => r.data.photo),
     enabled: !!id,
     staleTime: Infinity, // image bytes never change once uploaded
-  });
+  };
+}
+
+// Full image (data URL) for a single photo — loaded only when viewed.
+export function usePhotoFull(id) {
+  return useQuery(photoFullQuery(id));
 }
 
 // ---- Writes ---------------------------------------------------------------
