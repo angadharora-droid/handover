@@ -89,6 +89,14 @@ export function buildSignoffReportHtml({
   const title = handover?.name || 'Visit Sign-Off Sheet';
   const subParts = [handover?.code, handover?.location].filter(Boolean).map(esc).join(' · ');
 
+  // The browser's "Save as PDF" dialog seeds the file name from <title>, so fold
+  // the chosen date (single day or range) into it — skip the generic "All dates".
+  const dateLabel = filterSummary?.dateLabel;
+  const docTitle =
+    dateLabel && dateLabel !== 'All dates'
+      ? `${title} — Sign-Off Report — ${dateLabel}`
+      : `${title} — Sign-Off Report`;
+
   const sections = (statuses || []).map(statusSectionHtml).join('');
 
   const totalItems = (statuses || []).reduce((n, s) => n + s.count, 0);
@@ -143,7 +151,7 @@ export function buildSignoffReportHtml({
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(title)} — Sign-Off Report</title>
+<title>${esc(docTitle)}</title>
 <style>
   :root { --maroon:#6f0e13; --ink:#1c1b1a; --muted:#6b6a64; }
   @page { size: A4; margin: 14mm; }
@@ -265,9 +273,14 @@ export function downloadSignoffReport(opts) {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const name = (opts.handover?.name || 'sign-off').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const dateLabel = opts.filterSummary?.dateLabel;
+  const datePart = dateLabel && dateLabel !== 'All dates' ? `-${dateLabel}` : '';
+  const name = `${opts.handover?.name || 'sign-off'}-report${datePart}`
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
   a.href = url;
-  a.download = `${name}-report.html`;
+  a.download = `${name}.html`;
   document.body.appendChild(a);
   a.click();
   a.remove();
