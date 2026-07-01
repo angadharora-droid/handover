@@ -221,9 +221,17 @@ export default function Signoff() {
       cl.statusOrder
     );
 
+    // "Date" for a single day, "Date range" otherwise, so the heading reads
+    // naturally whether one date or a from–to span was chosen.
     let dateLabel = 'All dates';
+    let dateHeading = 'Date range';
     if (fromDate && toDate) {
-      dateLabel = fromDate === toDate ? formatDay(fromDate) : `${formatDay(fromDate)} – ${formatDay(toDate)}`;
+      if (fromDate === toDate) {
+        dateLabel = formatDay(fromDate);
+        dateHeading = 'Date';
+      } else {
+        dateLabel = `${formatDay(fromDate)} – ${formatDay(toDate)}`;
+      }
     } else if (fromDate) dateLabel = `From ${formatDay(fromDate)}`;
     else if (toDate) dateLabel = `Up to ${formatDay(toDate)}`;
 
@@ -239,7 +247,7 @@ export default function Signoff() {
       immediate: repImmediate,
       existing,
       finalised,
-      filterSummary: { dateLabel, userLabel },
+      filterSummary: { dateLabel, dateHeading, userLabel },
       generatedAt: formatDateTime(new Date()),
     });
   };
