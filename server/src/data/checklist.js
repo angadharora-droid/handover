@@ -7,6 +7,7 @@
 export const STATUS_OPTIONS = [
   { val: '', label: '— Select status —' },
   { val: 'accepted', label: '✅ Accepted' },
+  { val: 'cph', label: '🏢 CPH Scope' },
   { val: 'pending-install', label: '⏳ Pending – Installation' },
   { val: 'docs-pending', label: '📄 Physically Accepted, Docs Pending' },
   { val: 'damaged', label: '⚠️ Damaged – Needs Repair' },
@@ -18,6 +19,7 @@ export const STATUS_OPTIONS = [
 // Order used when grouping the sign-off sheet.
 export const STATUS_ORDER = [
   'accepted',
+  'cph',
   'pending-install',
   'docs-pending',
   'damaged',

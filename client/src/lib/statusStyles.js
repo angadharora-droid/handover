@@ -4,6 +4,7 @@
 export const STATUS_LABEL = {
   '': 'Not started',
   accepted: 'Accepted',
+  cph: 'CPH Scope',
   'pending-install': 'Pending – Installation',
   'docs-pending': 'Docs Pending',
   damaged: 'Damaged – Needs Repair',
@@ -14,6 +15,7 @@ export const STATUS_LABEL = {
 
 export const STATUS_ICON = {
   accepted: '✅',
+  cph: '🏢',
   'pending-install': '⏳',
   'docs-pending': '📄',
   damaged: '⚠️',
@@ -26,6 +28,7 @@ export const STATUS_ICON = {
 export const STATUS_BADGE = {
   '': { bg: '#f1efe8', text: '#6b6a64' },
   accepted: { bg: '#eaf3de', text: '#27500a' },
+  cph: { bg: '#ddf1f0', text: '#0a5f5f' },
   'pending-install': { bg: '#faeeda', text: '#633806' },
   'docs-pending': { bg: '#e6f1fb', text: '#0c447c' },
   damaged: { bg: '#fcebeb', text: '#791f1f' },
@@ -37,6 +40,7 @@ export const STATUS_BADGE = {
 // Solid colours for progress bars / text.
 export const STATUS_COLOR = {
   accepted: '#27500a',
+  cph: '#0a5f5f',
   'pending-install': '#633806',
   'docs-pending': '#0c447c',
   damaged: '#791f1f',
@@ -49,6 +53,7 @@ export const STATUS_COLOR = {
 // Vivid colours for the donut chart.
 export const PIE_COLORS = {
   accepted: '#27500a',
+  cph: '#14a89e',
   'pending-install': '#ef9f27',
   'docs-pending': '#185fa5',
   damaged: '#e24b4a',
@@ -61,6 +66,7 @@ export const PIE_COLORS = {
 // Section background / border for the sign-off sheet.
 export const STATUS_SECTION = {
   accepted: { bg: '#eaf3de', border: '#c0dd97' },
+  cph: { bg: '#ddf1f0', border: '#a9dedb' },
   'pending-install': { bg: '#faeeda', border: '#fac775' },
   'docs-pending': { bg: '#e6f1fb', border: '#b5d4f4' },
   damaged: { bg: '#fcebeb', border: '#f7c1c1' },

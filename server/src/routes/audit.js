@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 });
 
 // Daily summary: per day (IST), how many changes each user made, and how many
-// of those marked an item "done" (accepted / phase2 / dropped).
+// of those marked an item "done" (accepted / cph / phase2 / dropped).
 router.get('/daily', async (req, res) => {
   const h = await getCurrentHandover();
   if (!h) return res.status(400).json({ error: 'No handover found. Run the seed script.' });
@@ -37,7 +37,7 @@ router.get('/daily', async (req, res) => {
         },
         total: { $sum: 1 },
         completed: {
-          $sum: { $cond: [{ $in: ['$newStatus', ['accepted', 'phase2', 'dropped']] }, 1, 0] },
+          $sum: { $cond: [{ $in: ['$newStatus', ['accepted', 'cph', 'phase2', 'dropped']] }, 1, 0] },
         },
       },
     },

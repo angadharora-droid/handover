@@ -119,6 +119,7 @@ export default function Dashboard() {
               {Object.keys(checklist).map((area) => {
                 const p = getAreaProgress(checklist, area, map, customMap);
                 const acc = p.counts['accepted'] || 0;
+                const cph = p.counts['cph'] || 0;
                 const dmg = p.counts['damaged'] || 0;
                 const pend = (p.counts['pending-install'] || 0) + (p.counts['docs-pending'] || 0);
                 const nv = p.counts['next-visit'] || 0;
@@ -132,7 +133,7 @@ export default function Dashboard() {
                     </div>
                     <ProgressBar pct={p.pct} />
                     <div className="mt-1 text-[11px] text-stone-500 tnum">
-                      {acc} accepted · {dmg} damaged · {pend} pending · {nv} next visit · {notStarted} not started
+                      {acc} accepted · {cph} CPH · {dmg} damaged · {pend} pending · {nv} next visit · {notStarted} not started
                     </div>
                   </div>
                 );
