@@ -2,10 +2,10 @@
 // entries, and any user-added ("Other") custom items.
 
 // An item counts as "done" (and toward the completion percentage) only once it
-// reaches a closed state — accepted or dropped from the list. Items that are
-// merely touched (pending / damaged / docs-pending / next-visit / phase 2) are
-// NOT complete.
-export const COMPLETED_STATUSES = ['accepted', 'dropped'];
+// reaches a closed state — accepted, CPH scope, or dropped from the list. Items
+// that are merely touched (pending / damaged / docs-pending / next-visit /
+// phase 2) are NOT complete. CPH is treated as accepted for the percentage.
+export const COMPLETED_STATUSES = ['accepted', 'cph', 'dropped'];
 
 // Statuses only an administrator may apply (mirrors the server).
 export const ADMIN_ONLY_STATUSES = ['phase2', 'dropped'];
