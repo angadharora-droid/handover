@@ -1,12 +1,78 @@
 import { useState } from 'react';
-import { Gauge, CheckCircle2, AlertTriangle, Clock, MapPin, CircleDashed } from 'lucide-react';
+import { Gauge, CheckCircle2, AlertTriangle, Clock, MapPin, CircleDashed, ChevronDown } from 'lucide-react';
 import { useChecklist, useEntries, useCustomItems } from '../lib/queries';
-import { buildEntryMap, buildCustomMap, getAllStatusCounts, getAreaProgress, getTotals } from '../lib/checklist';
+import {
+  buildEntryMap,
+  buildCustomMap,
+  buildNameLookup,
+  groupEntriesByStatus,
+  getAllStatusCounts,
+  getAreaProgress,
+  getTotals,
+} from '../lib/checklist';
 import { PIE_COLORS, STATUS_COLOR, STATUS_LABEL } from '../lib/statusStyles';
 import DonutChart from '../components/DonutChart';
 import ProgressBar from '../components/ProgressBar';
 import { PageHeader, LoadingScreen } from '../components/ui';
+import { formatDateTime } from '../lib/format';
 import { ErrorBox } from './Home';
+
+// The items sitting in one status, grouped by area, shown when a status row on
+// the "By Status" tab is expanded.
+function StatusItemList({ records }) {
+  if (!records.length) {
+    return (
+      <div className="mt-2 rounded-lg border border-dashed border-stone-200 px-3 py-4 text-center text-xs text-stone-400">
+        No items in this status yet.
+      </div>
+    );
+  }
+
+  const byArea = {};
+  records.forEach((r) => {
+    (byArea[r.area] ||= []).push(r);
+  });
+  Object.values(byArea).forEach((list) =>
+    list.sort(
+      (a, b) =>
+        String(a.room || '').localeCompare(String(b.room || ''), undefined, { numeric: true }) ||
+        String(a.itemId).localeCompare(String(b.itemId), undefined, { numeric: true })
+    )
+  );
+
+  return (
+    <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-stone-200 bg-stone-50/60">
+      {Object.keys(byArea)
+        .sort((a, b) => a.localeCompare(b))
+        .map((area) => (
+          <div key={area} className="border-t border-stone-200 first:border-t-0">
+            <div className="flex items-center gap-2 px-3 pb-1 pt-2.5 text-[11px] font-semibold text-maroon">
+              {area}
+              <span className="badge bg-stone-200 text-stone-600">{byArea[area].length}</span>
+            </div>
+            <div className="divide-y divide-stone-200/70 px-3">
+              {byArea[area].map((rec) => (
+                <div key={`${rec.area}::${rec.room || ''}::${rec.itemId}`} className="py-1.5">
+                  <div className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+                    <span className="font-medium text-ink">{rec.item}</span>
+                    {rec.room && <span className="text-[11px] text-stone-500">· Room {rec.room}</span>}
+                  </div>
+                  {rec.remarks && (
+                    <div className="mt-0.5 text-[11px] italic text-stone-500">“{rec.remarks}”</div>
+                  )}
+                  {rec.updatedAt && (
+                    <div className="mt-0.5 text-[10px] text-stone-400">
+                      {[rec.updatedByName, formatDateTime(rec.updatedAt)].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+}
 
 function MetricCard({ icon: Icon, label, value, color, tint }) {
   return (
@@ -29,6 +95,8 @@ export default function Dashboard() {
   const { data: entries, isLoading: l2, error: e2 } = useEntries();
   const { data: customItems } = useCustomItems();
   const [tab, setTab] = useState('area');
+  // Which status row on the "By Status" tab is expanded (null = none).
+  const [openStatus, setOpenStatus] = useState(null);
 
   if (l1 || l2) return <LoadingScreen />;
   if (e1 || e2) return <ErrorBox error={e1 || e2} />;
@@ -38,6 +106,7 @@ export default function Dashboard() {
   const customMap = buildCustomMap(customItems);
   const counts = getAllStatusCounts(checklist, map, customMap);
   const totals = getTotals(checklist, map, customMap);
+  const entriesByStatus = groupEntriesByStatus(entries, buildNameLookup(checklist, customItems));
   const statusKeys = cl.statusOptions.map((o) => o.val).filter(Boolean);
 
   const donutData = [...statusKeys, ''].map((k) => ({
@@ -143,20 +212,37 @@ export default function Dashboard() {
 
           {tab === 'status' && (
             <div className="space-y-3.5">
+              <p className="text-[11px] text-stone-500">Tap a status to see the items in it.</p>
               {cl.statusOptions
                 .filter((o) => o.val)
                 .map((o) => {
                   const cnt = counts[o.val] || 0;
                   const pct = totals.total ? Math.round((cnt / totals.total) * 100) : 0;
+                  const open = openStatus === o.val;
                   return (
                     <div key={o.val}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-sm font-medium text-ink">{o.label}</span>
-                        <span className="text-sm font-semibold tnum" style={{ color: STATUS_COLOR[o.val] }}>
-                          {cnt}
-                        </span>
-                      </div>
-                      <ProgressBar pct={pct} color={STATUS_COLOR[o.val]} />
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        onClick={() => setOpenStatus(open ? null : o.val)}
+                        className="w-full rounded-lg px-1 py-0.5 text-left transition hover:bg-stone-50"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 shrink-0 text-stone-400 transition-transform ${
+                                open ? 'rotate-0' : '-rotate-90'
+                              }`}
+                            />
+                            {o.label}
+                          </span>
+                          <span className="text-sm font-semibold tnum" style={{ color: STATUS_COLOR[o.val] }}>
+                            {cnt}
+                          </span>
+                        </div>
+                        <ProgressBar pct={pct} color={STATUS_COLOR[o.val]} />
+                      </button>
+                      {open && <StatusItemList records={entriesByStatus[o.val] || []} />}
                     </div>
                   );
                 })}

@@ -9,7 +9,7 @@ import {
   useCustomItems,
   useUsers,
 } from '../lib/queries';
-import { getItems, isImmediateAction } from '../lib/checklist';
+import { getItems, isImmediateAction, buildNameLookup } from '../lib/checklist';
 import { STATUS_LABEL, STATUS_SECTION, STATUS_COLOR } from '../lib/statusStyles';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../lib/format';
@@ -41,21 +41,6 @@ function collect(checklist, entries, keywords, customItems) {
     if (e.remarks && isImmediateAction(e.remarks, keywords)) immediate.push(rec);
   });
   return { byStatus, immediate };
-}
-
-// Build a name lookup keyed by `area::itemId` from the template + custom items,
-// so every entry can be shown with its real item name (not the bare id code).
-function buildNameLookup(checklist, customItems) {
-  const lookup = {};
-  Object.keys(checklist).forEach((area) => {
-    getItems(checklist, area).forEach((it) => {
-      lookup[`${area}::${it.id}`] = it.name;
-    });
-  });
-  (customItems || []).forEach((c) => {
-    lookup[`${c.area}::${c.id}`] = c.name;
-  });
-  return lookup;
 }
 
 // Group the entries by status (accepted, pending-install, …) and, inside each
@@ -107,12 +92,15 @@ function collectStatusAreas(checklist, entries, keywords, customItems, statusOrd
   return { statuses, immediate };
 }
 
-// Keep only entries last updated within [from, to] (inclusive, local time) and,
-// when a user is chosen, only that user's entries. Empty bounds = unbounded.
-function filterEntries(entries, { from, to, userId }) {
+// Keep only entries last updated within [from, to] (inclusive, local time),
+// limited to the chosen user and statuses. Empty bounds = unbounded; an empty
+// status list = every status.
+function filterEntries(entries, { from, to, userId, statuses }) {
   const start = from ? new Date(`${from}T00:00:00`) : null;
   const end = to ? new Date(`${to}T23:59:59.999`) : null;
+  const statusSet = statuses && statuses.length ? new Set(statuses) : null;
   return (entries || []).filter((e) => {
+    if (statusSet && !statusSet.has(e.status)) return false;
     if (userId && String(e.updatedBy || '') !== String(userId)) return false;
     if (start || end) {
       const t = e.updatedAt ? new Date(e.updatedAt) : null;
@@ -183,6 +171,13 @@ export default function Signoff() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reportUserId, setReportUserId] = useState('');
+  // Statuses to include; empty = all statuses.
+  const [reportStatuses, setReportStatuses] = useState([]);
+
+  const toggleStatus = (val) =>
+    setReportStatuses((prev) =>
+      prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
+    );
 
   // Prefill from the existing record or the logged-in user (once).
   useEffect(() => {
@@ -212,7 +207,12 @@ export default function Signoff() {
   const onDownload = () => {
     // Non-admins always export their own work; admins choose (blank = everyone).
     const effectiveUserId = isAdmin ? reportUserId : user?.id;
-    const filtered = filterEntries(entries, { from: fromDate, to: toDate, userId: effectiveUserId });
+    const filtered = filterEntries(entries, {
+      from: fromDate,
+      to: toDate,
+      userId: effectiveUserId,
+      statuses: reportStatuses,
+    });
     const { statuses: repStatuses, immediate: repImmediate } = collectStatusAreas(
       checklist,
       filtered,
@@ -241,13 +241,21 @@ export default function Signoff() {
       userLabel = (users || []).find((u) => String(u.id) === String(reportUserId))?.name || 'Selected user';
     }
 
+    // Keep the chosen statuses in the checklist's canonical order for the heading.
+    const statusLabel = reportStatuses.length
+      ? cl.statusOrder
+          .filter((s) => reportStatuses.includes(s))
+          .map((s) => STATUS_LABEL[s] || s)
+          .join(', ')
+      : 'All statuses';
+
     downloadSignoffReport({
       handover,
       statuses: repStatuses,
       immediate: repImmediate,
       existing,
       finalised,
-      filterSummary: { dateLabel, dateHeading, userLabel },
+      filterSummary: { dateLabel, dateHeading, userLabel, statusLabel },
       generatedAt: formatDateTime(new Date()),
     });
   };
@@ -276,8 +284,8 @@ export default function Signoff() {
           <p className="mb-3 mt-0.5 text-xs text-stone-500">
             Export the sign-off sheet as a printable PDF.{' '}
             {isAdmin
-              ? 'Filter by date range and user, or leave blank for the full record.'
-              : 'Filter by date range — the report covers your own entries.'}
+              ? 'Filter by date range, user and status, or leave blank for the full record.'
+              : 'Filter by date range and status — the report covers your own entries.'}
           </p>
           {(() => {
             const today = todayStr();
@@ -346,12 +354,55 @@ export default function Signoff() {
               <Download className="h-4 w-4" /> Download
             </button>
           </div>
-          {(fromDate || toDate || reportUserId) && (
+
+          {/* Status filter — none selected means every status is included. */}
+          <div className="mt-4">
+            <div className="input-label">Statuses</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setReportStatuses([])}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  reportStatuses.length === 0
+                    ? 'border-maroon bg-maroon text-white'
+                    : 'border-stone-200 text-stone-600 hover:border-maroon/40 hover:text-maroon'
+                }`}
+              >
+                All statuses
+              </button>
+              {cl.statusOrder.map((sv) => {
+                const on = reportStatuses.includes(sv);
+                return (
+                  <button
+                    key={sv}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleStatus(sv)}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition"
+                    style={
+                      on
+                        ? {
+                            background: STATUS_SECTION[sv]?.bg || '#f1efe8',
+                            borderColor: STATUS_SECTION[sv]?.border || '#d3d1c7',
+                            color: STATUS_COLOR[sv],
+                          }
+                        : { borderColor: '#e7e5e4', color: '#57564f' }
+                    }
+                  >
+                    {STATUS_LABEL[sv] || sv}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {(fromDate || toDate || reportUserId || reportStatuses.length > 0) && (
             <button
               onClick={() => {
                 setFromDate('');
                 setToDate('');
                 setReportUserId('');
+                setReportStatuses([]);
               }}
               className="mt-3 text-xs font-medium text-maroon hover:underline"
             >

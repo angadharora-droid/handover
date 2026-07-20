@@ -245,6 +245,7 @@ export function buildSignoffReportHtml({
       <div><b>Generated:</b> ${esc(generatedAt)}</div>
       <div><b>${esc(filterSummary?.dateHeading || 'Date range')}:</b> ${esc(filterSummary?.dateLabel || 'All dates')}</div>
       <div><b>User:</b> ${esc(filterSummary?.userLabel || 'All users')}</div>
+      <div><b>Statuses:</b> ${esc(filterSummary?.statusLabel || 'All statuses')}</div>
       <div><b>Items:</b> ${totalItems}</div>
     </div>
     ${immediateHtml}
