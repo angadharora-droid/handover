@@ -119,6 +119,35 @@ export function getTotals(checklist, map, customMap) {
   return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
+// ---- Entry lookups --------------------------------------------------------
+
+// `area::itemId` -> item name, from the template items plus any custom
+// ("Other") items, so a saved entry can be shown with its real name.
+export function buildNameLookup(checklist, customItems) {
+  const lookup = {};
+  Object.keys(checklist || {}).forEach((area) => {
+    staticItems(checklist, area).forEach((it) => {
+      lookup[`${area}::${it.id}`] = it.name;
+    });
+  });
+  (customItems || []).forEach((c) => {
+    lookup[`${c.area}::${c.id}`] = c.name;
+  });
+  return lookup;
+}
+
+// status -> [entry, …] with the item name resolved. Entries with no status set
+// are skipped (those items are simply "not started").
+export function groupEntriesByStatus(entries, nameLookup) {
+  const byStatus = {};
+  (entries || []).forEach((e) => {
+    if (!e.status) return;
+    const rec = { ...e, item: nameLookup[`${e.area}::${e.itemId}`] || e.itemId };
+    (byStatus[e.status] ||= []).push(rec);
+  });
+  return byStatus;
+}
+
 export function isImmediateAction(remarks, keywords) {
   if (!remarks) return false;
   const r = remarks.toLowerCase();
