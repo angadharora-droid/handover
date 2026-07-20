@@ -93,14 +93,16 @@ function collectStatusAreas(checklist, entries, keywords, customItems, statusOrd
 }
 
 // Keep only entries last updated within [from, to] (inclusive, local time),
-// limited to the chosen user and statuses. Empty bounds = unbounded; an empty
-// status list = every status.
-function filterEntries(entries, { from, to, userId, statuses }) {
+// limited to the chosen user, statuses and areas. Empty bounds = unbounded; an
+// empty status/area list = every status/area.
+function filterEntries(entries, { from, to, userId, statuses, areas }) {
   const start = from ? new Date(`${from}T00:00:00`) : null;
   const end = to ? new Date(`${to}T23:59:59.999`) : null;
   const statusSet = statuses && statuses.length ? new Set(statuses) : null;
+  const areaSet = areas && areas.length ? new Set(areas) : null;
   return (entries || []).filter((e) => {
     if (statusSet && !statusSet.has(e.status)) return false;
+    if (areaSet && !areaSet.has(e.area)) return false;
     if (userId && String(e.updatedBy || '') !== String(userId)) return false;
     if (start || end) {
       const t = e.updatedAt ? new Date(e.updatedAt) : null;
@@ -124,6 +126,56 @@ function todayStr() {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// A checkbox group for the report filters. Nothing ticked means "no
+// restriction", which is why the empty state reads as "All … included" rather
+// than as an empty selection.
+function CheckboxFilter({ label, options, selected, onChange, allLabel }) {
+  const none = selected.length === 0;
+  const allValues = options.map((o) => o.val);
+
+  const toggle = (val) =>
+    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="input-label mb-0">{label}</span>
+        <button
+          type="button"
+          onClick={() => onChange(none ? allValues : [])}
+          className="text-[11px] font-medium text-maroon hover:underline"
+        >
+          {none ? 'Select all' : 'Clear'}
+        </button>
+      </div>
+      <div className="max-h-44 overflow-y-auto rounded-lg border border-stone-300 bg-white p-2.5">
+        <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+          {options.map((o) => (
+            <label
+              key={o.val}
+              className="flex cursor-pointer items-center gap-2 text-xs text-stone-700"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 cursor-pointer accent-[#6f0e13]"
+                checked={selected.includes(o.val)}
+                onChange={() => toggle(o.val)}
+              />
+              {o.color && (
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: o.color }} />
+              )}
+              <span className="truncate">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="mt-1 text-[11px] text-stone-500">
+        {none ? `${allLabel} included` : `${selected.length} of ${options.length} selected`}
+      </div>
+    </div>
+  );
 }
 
 function RowLine({ rec }) {
@@ -171,13 +223,9 @@ export default function Signoff() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reportUserId, setReportUserId] = useState('');
-  // Statuses to include; empty = all statuses.
+  // Statuses / areas to include; empty = everything.
   const [reportStatuses, setReportStatuses] = useState([]);
-
-  const toggleStatus = (val) =>
-    setReportStatuses((prev) =>
-      prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
-    );
+  const [reportAreas, setReportAreas] = useState([]);
 
   // Prefill from the existing record or the logged-in user (once).
   useEffect(() => {
@@ -212,6 +260,7 @@ export default function Signoff() {
       to: toDate,
       userId: effectiveUserId,
       statuses: reportStatuses,
+      areas: reportAreas,
     });
     const { statuses: repStatuses, immediate: repImmediate } = collectStatusAreas(
       checklist,
@@ -241,7 +290,8 @@ export default function Signoff() {
       userLabel = (users || []).find((u) => String(u.id) === String(reportUserId))?.name || 'Selected user';
     }
 
-    // Keep the chosen statuses in the checklist's canonical order for the heading.
+    // Keep the chosen statuses/areas in the checklist's canonical order so the
+    // heading reads the same way the sheet itself is ordered.
     const statusLabel = reportStatuses.length
       ? cl.statusOrder
           .filter((s) => reportStatuses.includes(s))
@@ -249,13 +299,19 @@ export default function Signoff() {
           .join(', ')
       : 'All statuses';
 
+    const areaLabel = reportAreas.length
+      ? Object.keys(checklist)
+          .filter((a) => reportAreas.includes(a))
+          .join(', ')
+      : 'All areas';
+
     downloadSignoffReport({
       handover,
       statuses: repStatuses,
       immediate: repImmediate,
       existing,
       finalised,
-      filterSummary: { dateLabel, dateHeading, userLabel, statusLabel },
+      filterSummary: { dateLabel, dateHeading, userLabel, statusLabel, areaLabel },
       generatedAt: formatDateTime(new Date()),
     });
   };
@@ -284,8 +340,8 @@ export default function Signoff() {
           <p className="mb-3 mt-0.5 text-xs text-stone-500">
             Export the sign-off sheet as a printable PDF.{' '}
             {isAdmin
-              ? 'Filter by date range, user and status, or leave blank for the full record.'
-              : 'Filter by date range and status — the report covers your own entries.'}
+              ? 'Filter by date range, user, status and area, or leave blank for the full record.'
+              : 'Filter by date range, status and area — the report covers your own entries.'}
           </p>
           {(() => {
             const today = todayStr();
@@ -355,54 +411,36 @@ export default function Signoff() {
             </button>
           </div>
 
-          {/* Status filter — none selected means every status is included. */}
-          <div className="mt-4">
-            <div className="input-label">Statuses</div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setReportStatuses([])}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  reportStatuses.length === 0
-                    ? 'border-maroon bg-maroon text-white'
-                    : 'border-stone-200 text-stone-600 hover:border-maroon/40 hover:text-maroon'
-                }`}
-              >
-                All statuses
-              </button>
-              {cl.statusOrder.map((sv) => {
-                const on = reportStatuses.includes(sv);
-                return (
-                  <button
-                    key={sv}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleStatus(sv)}
-                    className="rounded-full border px-3 py-1 text-xs font-medium transition"
-                    style={
-                      on
-                        ? {
-                            background: STATUS_SECTION[sv]?.bg || '#f1efe8',
-                            borderColor: STATUS_SECTION[sv]?.border || '#d3d1c7',
-                            color: STATUS_COLOR[sv],
-                          }
-                        : { borderColor: '#e7e5e4', color: '#57564f' }
-                    }
-                  >
-                    {STATUS_LABEL[sv] || sv}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Status + area filters — nothing ticked means everything is included. */}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <CheckboxFilter
+              label="Statuses"
+              allLabel="All statuses"
+              selected={reportStatuses}
+              onChange={setReportStatuses}
+              options={cl.statusOrder.map((sv) => ({
+                val: sv,
+                label: STATUS_LABEL[sv] || sv,
+                color: STATUS_COLOR[sv],
+              }))}
+            />
+            <CheckboxFilter
+              label="Areas"
+              allLabel="All areas"
+              selected={reportAreas}
+              onChange={setReportAreas}
+              options={Object.keys(checklist).map((a) => ({ val: a, label: a }))}
+            />
           </div>
 
-          {(fromDate || toDate || reportUserId || reportStatuses.length > 0) && (
+          {(fromDate || toDate || reportUserId || reportStatuses.length > 0 || reportAreas.length > 0) && (
             <button
               onClick={() => {
                 setFromDate('');
                 setToDate('');
                 setReportUserId('');
                 setReportStatuses([]);
+                setReportAreas([]);
               }}
               className="mt-3 text-xs font-medium text-maroon hover:underline"
             >
