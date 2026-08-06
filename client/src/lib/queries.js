@@ -114,6 +114,12 @@ export function useFinalise() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body) => api.post('/auth/change-password', body).then((r) => r.data),
+  });
+}
+
 export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({

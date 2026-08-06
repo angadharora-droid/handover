@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   LayoutDashboard,
@@ -8,6 +8,7 @@ import {
   History,
   Users,
   LogOut,
+  KeyRound,
   Menu,
   X,
   Lock,
@@ -105,6 +106,15 @@ function SidebarContent({ user, onLogout, onNavigate }) {
             <div className="truncate text-sm font-medium text-white">{user?.name}</div>
             <div className="text-[11px] text-gold/90">{ROLE_LABEL[user?.role] || user?.role}</div>
           </div>
+          <Link
+            to="/change-password"
+            onClick={onNavigate}
+            title="Change password"
+            aria-label="Change password"
+            className="rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+          >
+            <KeyRound className="h-[18px] w-[18px]" />
+          </Link>
           <button
             onClick={onLogout}
             title="Sign out"

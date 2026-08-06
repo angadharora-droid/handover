@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { User, ROLE_VALUES } from '../models/User.js';
 import { authRequired, requireRole } from '../middleware/auth.js';
 import { CHECKLIST } from '../data/checklist.js';
+import { phoneKey } from '../utils/phone.js';
+import { passwordPolicyError } from '../utils/passwordPolicy.js';
 
 const router = Router();
 
@@ -14,25 +16,43 @@ function sanitizeAreas(areas) {
   return [...new Set(areas.filter((a) => typeof a === 'string' && CHECKLIST[a]))];
 }
 
+// Two accounts must never share a phone (compared by last 10 digits), or a
+// phone login would be ambiguous.
+async function phoneInUse(phone, excludeId) {
+  const key = phoneKey(phone);
+  if (!key) return false;
+  const others = await User.find({ phone: { $nin: [null, ''] } });
+  return others.some((u) => phoneKey(u.phone) === key && u._id.toString() !== excludeId);
+}
+
 router.get('/', async (req, res) => {
   const users = await User.find().sort({ createdAt: 1 });
   res.json({ users: users.map((u) => u.toSafeJSON()) });
 });
 
 router.post('/', async (req, res) => {
-  const { name, email, password, role, designation, assignedAreas } = req.body || {};
+  const { name, email, phone, password, role, designation, assignedAreas } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email and password are required' });
   }
   if (role && !ROLE_VALUES.includes(role)) {
     return res.status(400).json({ error: `role must be one of: ${ROLE_VALUES.join(', ')}` });
   }
+  const policyError = passwordPolicyError(role || 'cph', password);
+  if (policyError) return res.status(400).json({ error: policyError });
+
   const exists = await User.findOne({ email: String(email).toLowerCase().trim() });
   if (exists) return res.status(409).json({ error: 'A user with that email already exists' });
+
+  const phoneVal = String(phone || '').trim();
+  if (await phoneInUse(phoneVal)) {
+    return res.status(409).json({ error: 'A user with that phone number already exists' });
+  }
 
   const user = new User({
     name,
     email,
+    phone: phoneVal,
     role: role || 'cph',
     designation: designation || '',
     assignedAreas: sanitizeAreas(assignedAreas),
@@ -43,7 +63,7 @@ router.post('/', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
-  const { name, role, designation, active, password, assignedAreas } = req.body || {};
+  const { name, role, designation, active, password, phone, assignedAreas } = req.body || {};
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -51,13 +71,26 @@ router.patch('/:id', async (req, res) => {
   if (designation !== undefined) user.designation = designation;
   if (active !== undefined) user.active = !!active;
   if (assignedAreas !== undefined) user.assignedAreas = sanitizeAreas(assignedAreas);
+  if (phone !== undefined) {
+    const phoneVal = String(phone || '').trim();
+    if (await phoneInUse(phoneVal, user._id.toString())) {
+      return res.status(409).json({ error: 'A user with that phone number already exists' });
+    }
+    user.phone = phoneVal;
+  }
   if (role !== undefined) {
     if (!ROLE_VALUES.includes(role)) {
       return res.status(400).json({ error: `role must be one of: ${ROLE_VALUES.join(', ')}` });
     }
     user.role = role;
   }
-  if (password) await user.setPassword(password);
+  if (password) {
+    // Validate against the target account's role, including a role set in
+    // this same request (role is applied above, before this check).
+    const policyError = passwordPolicyError(user.role, password);
+    if (policyError) return res.status(400).json({ error: policyError });
+    await user.setPassword(password);
+  }
 
   await user.save();
   res.json({ user: user.toSafeJSON() });

@@ -20,8 +20,9 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const r = await api.post('/auth/login', { email, password });
+  // identifier is an email, or a phone number for admin accounts.
+  const login = useCallback(async (identifier, password) => {
+    const r = await api.post('/auth/login', { identifier, password });
     localStorage.setItem(TOKEN_KEY, r.data.token);
     setUser(r.data.user);
     return r.data.user;

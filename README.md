@@ -143,8 +143,9 @@ All routes are under `/api` and (except `health` and `auth/login`) require a
 
 | Method | Path                      | Notes                                  |
 | ------ | ------------------------- | -------------------------------------- |
-| POST   | `/auth/login`             | → `{ token, user }`                    |
+| POST   | `/auth/login`             | `{ identifier, password }` → `{ token, user }` — identifier is an email, or a phone number (admins only); rate-limited with failed-attempt lockout |
 | GET    | `/auth/me`                | current user                           |
+| POST   | `/auth/change-password`   | `{ currentPassword, newPassword }` — admins may use a 4- or 6-digit PIN, other roles need 8+ characters |
 | GET    | `/checklist`              | template + status options + keywords   |
 | GET    | `/handover`               | current handover meta                  |
 | GET    | `/entries`                | all saved item states                  |
@@ -165,7 +166,7 @@ All routes are under `/api` and (except `health` and `auth/login`) require a
 
 ## Data model (MongoDB)
 
-- **users** — name, email, passwordHash, role, designation, active, **assignedAreas**
+- **users** — name, email, phone (admins can sign in with it; matched on the last 10 digits), passwordHash, role, designation, active, **assignedAreas**
 - **handovers** — the property being handed over (single: Centre Point Amravati)
 - **entries** — one per `{handover, area, room, itemId}`: status, remarks, who/when
 - **areasignoffs** — per area, Hariganga & CPH sides
