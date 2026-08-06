@@ -9,7 +9,7 @@ export default function Login() {
   const { user, login, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function Login() {
     setError('');
     setBusy(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate(location.state?.from?.pathname || '/', { replace: true });
     } catch (err) {
       setError(apiError(err, 'Invalid credentials'));
@@ -88,18 +88,21 @@ export default function Login() {
             )}
 
             <div>
-              <label htmlFor="email" className="input-label">
-                Email
+              <label htmlFor="identifier" className="input-label">
+                Email or phone number
               </label>
               <input
-                id="email"
-                type="email"
+                id="identifier"
+                type="text"
                 autoComplete="username"
                 className="field"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
               />
+              <p className="mt-1.5 text-xs text-stone-400">
+                Phone number sign-in is available for administrators only.
+              </p>
             </div>
 
             <div>

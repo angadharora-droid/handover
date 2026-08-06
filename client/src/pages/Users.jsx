@@ -30,7 +30,15 @@ const ROLE_TONE = {
 // viewers edit nothing.
 const NO_SECTIONS = new Set(['admin', 'viewer']);
 
-const EMPTY = { name: '', email: '', password: '', role: 'cph', designation: '', assignedAreas: [] };
+const EMPTY = {
+  name: '',
+  email: '',
+  phone: '',
+  password: '',
+  role: 'cph',
+  designation: '',
+  assignedAreas: [],
+};
 
 function SectionPicker({ areas, selected, onToggle, onAll, onClear }) {
   return (
@@ -150,10 +158,17 @@ export default function Users() {
           <input
             className="field"
             type="password"
-            placeholder="Password"
+            placeholder={form.role === 'admin' ? 'Password or 4/6-digit PIN' : 'Password (8+ characters)'}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+          />
+          <input
+            className="field"
+            inputMode="tel"
+            placeholder="Phone number (optional)"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
           />
           <input
             className="field"
@@ -186,7 +201,8 @@ export default function Users() {
               </>
             ) : (
               <>
-                <ShieldCheck className="h-3.5 w-3.5 text-maroon" /> Administrators can update every section.
+                <ShieldCheck className="h-3.5 w-3.5 text-maroon" /> Administrators can update every
+                section, sign in with their phone number, and use a 4- or 6-digit PIN.
               </>
             )}
           </div>
@@ -212,6 +228,7 @@ export default function Users() {
             <tr>
               <th className="px-4 py-2.5 font-semibold">Name</th>
               <th className="px-4 py-2.5 font-semibold">Email</th>
+              <th className="px-4 py-2.5 font-semibold">Phone</th>
               <th className="px-4 py-2.5 font-semibold">Role</th>
               <th className="px-4 py-2.5 font-semibold">Sections</th>
               <th className="px-4 py-2.5 font-semibold">Status</th>
@@ -235,6 +252,22 @@ export default function Users() {
                       {u.designation && <div className="text-xs text-stone-500">{u.designation}</div>}
                     </td>
                     <td className="px-4 py-3 text-stone-600">{u.email}</td>
+                    <td className="px-4 py-3">
+                      {/* Uncontrolled on purpose: keyed on the saved value so a
+                          refetch (or a rejected duplicate) resets the field. */}
+                      <input
+                        key={u.phone || 'none'}
+                        defaultValue={u.phone || ''}
+                        placeholder="Add phone"
+                        inputMode="tel"
+                        aria-label={`Phone number for ${u.name}`}
+                        className="w-32 rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-stone-600 transition placeholder:text-stone-300 hover:border-stone-200 focus:border-maroon/40 focus:bg-white focus:outline-none"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (u.phone || '')) updateUser.mutate({ id: u.id, phone: v });
+                        }}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <select
                         className={`rounded-md px-2 py-1 text-xs font-medium outline-none ring-1 ring-inset ring-transparent transition focus:ring-maroon/30 ${ROLE_TONE[u.role]} ${
@@ -301,7 +334,7 @@ export default function Users() {
                   </tr>
                   {open && !noSections && (
                     <tr className="bg-stone-50/60">
-                      <td colSpan={6} className="px-4 py-3">
+                      <td colSpan={7} className="px-4 py-3">
                         <SectionPicker
                           areas={areas}
                           selected={u.assignedAreas || []}

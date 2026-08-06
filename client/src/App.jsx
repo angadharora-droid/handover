@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import AreaPage from './pages/AreaPage';
 import Dashboard from './pages/Dashboard';
 import Signoff from './pages/Signoff';
+import ChangePassword from './pages/ChangePassword';
 import Users from './pages/Users';
 import Assignments from './pages/Assignments';
 import Audit from './pages/Audit';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/area/:areaName" element={<AreaPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/signoff" element={<Signoff />} />
+        <Route path="/change-password" element={<ChangePassword />} />
         <Route
           path="/users"
           element={
