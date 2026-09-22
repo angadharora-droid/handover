@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api, TOKEN_KEY } from '../lib/api';
+import { resolveSsoToken, ssoEnabled, ssoLogout } from '../lib/sso';
 
 const AuthContext = createContext(null);
 
@@ -10,8 +11,30 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
-      setLoading(false);
-      return;
+      if (!ssoEnabled()) {
+        setLoading(false);
+        return undefined;
+      }
+      // Central sign-on: no local session, so accept the portal's sign-on if
+      // the visitor has one. Stores the token exactly as `login` does; on any
+      // miss the login page is shown as before. `loading` stays true meanwhile.
+      let cancelled = false;
+      resolveSsoToken()
+        .then((ssoToken) => (ssoToken && !cancelled ? api.post('/auth/sso', { token: ssoToken }) : null))
+        .then((r) => {
+          if (cancelled || !r?.data?.token) return;
+          localStorage.setItem(TOKEN_KEY, r.data.token);
+          setUser(r.data.user);
+        })
+        .catch(() => {
+          /* not linked or auth service unreachable; fall through to the login page */
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
     api
       .get('/auth/me')
@@ -29,6 +52,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Also end the portal session, otherwise the next page load would sign
+    // straight back in through SSO. No-op unless VITE_AUTH_URL is set.
+    ssoLogout();
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
   }, []);

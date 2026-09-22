@@ -17,7 +17,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // The SSO hand-off is a login attempt, not an expired session: a 401 there
+    // must not bounce the visitor (the auth context shows the login page instead).
+    const isSsoLogin = String(err.config?.url || '').includes('/auth/sso');
+    if (err.response?.status === 401 && !isSsoLogin) {
       localStorage.removeItem(TOKEN_KEY);
       if (!window.location.pathname.startsWith('/login')) {
         window.location.assign('/login');
