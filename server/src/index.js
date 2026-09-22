@@ -16,6 +16,7 @@ import assignmentRoutes from './routes/assignments.js';
 import auditRoutes from './routes/audit.js';
 import customItemRoutes from './routes/customItems.js';
 import photoRoutes from './routes/photos.js';
+import ssoRoutes from './routes/sso.js';
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/custom-items', customItemRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/sso', ssoRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

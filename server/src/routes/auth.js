@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
 import { signToken } from '../utils/token.js';
 import { authRequired } from '../middleware/auth.js';
 import { phoneKey } from '../utils/phone.js';
 import { passwordPolicyError } from '../utils/passwordPolicy.js';
+import { verifySsoToken } from '../utils/ssoClient.js';
 import { loginBlocked, recordLoginFailure, clearLoginFailures } from '../utils/loginGuard.js';
 
 const router = Router();
@@ -45,6 +47,32 @@ router.post('/login', async (req, res) => {
   }
 
   clearLoginFailures(idKey);
+  const token = signToken(user);
+  return res.json({ token, user: user.toSafeJSON() });
+});
+
+// Central sign-on: the browser brings a hand-off token from the portal's auth
+// service, which tells us which local user (Mongo _id) it belongs to. Issues
+// the same JWT and user JSON as /login. Always fails unless AUTH_SERVICE_URL is set.
+router.post('/sso', async (req, res) => {
+  // Same per-IP throttle as /login, so bad tokens cannot be sprayed either.
+  const throttleKey = `sso:${req.ip}`;
+  if (loginBlocked(req.ip, throttleKey)) {
+    return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
+  }
+
+  const verified = await verifySsoToken(String(req.body?.token || ''));
+  if (!verified) {
+    recordLoginFailure(req.ip, throttleKey);
+    return res.status(401).json({ error: 'SSO sign-in failed' });
+  }
+
+  const user = mongoose.isValidObjectId(verified.localUserId)
+    ? await User.findById(verified.localUserId)
+    : null;
+  if (!user || !user.active) return res.status(404).json({ error: 'No account linked' });
+
+  clearLoginFailures(throttleKey);
   const token = signToken(user);
   return res.json({ token, user: user.toSafeJSON() });
 });
