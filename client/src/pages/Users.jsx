@@ -1,5 +1,16 @@
 import { Fragment, useState } from 'react';
-import { Trash2, UserPlus, ChevronDown, ChevronRight, ShieldCheck, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  Trash2,
+  UserPlus,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Check,
+} from 'lucide-react';
 import {
   useUsers,
   useChecklist,
@@ -83,6 +94,98 @@ function SectionPicker({ areas, selected, onToggle, onAll, onClear }) {
   );
 }
 
+// Mirrors the server's role-based password policy so most mistakes are caught
+// before the request is sent (the server still has the final say).
+function passwordProblem(role, pw) {
+  if (role === 'admin') {
+    if (/^\d{4}$/.test(pw) || /^\d{6}$/.test(pw) || pw.length >= 8) return '';
+    return 'Use a 4-digit PIN, a 6-digit PIN, or at least 8 characters';
+  }
+  return pw.length >= 8 ? '' : 'Password must be at least 8 characters';
+}
+
+// Inline form for an administrator to set a new password on someone else's
+// account — no current password needed.
+function PasswordPanel({ user, onClose }) {
+  const updateUser = useUpdateUser();
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const isAdminAccount = user.role === 'admin';
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const problem = passwordProblem(user.role, password);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    try {
+      await updateUser.mutateAsync({ id: user.id, password });
+      setPassword('');
+      setDone(true);
+    } catch (err) {
+      setError(apiError(err, 'Could not update the password'));
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <span className="flex items-center gap-1.5">
+          <Check className="h-4 w-4 shrink-0" /> Password updated for {user.name}. Share it with
+          them — it works from their next sign-in.
+        </span>
+        <button type="button" onClick={onClose} className="btn btn-outline btn-sm">
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="rounded-xl border border-stone-200 bg-stone-50/60 p-3.5">
+      <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+        Set a new password for {user.name}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-72">
+          <input
+            className="field pr-10"
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            autoFocus
+            placeholder={isAdminAccount ? 'Password or 4/6-digit PIN' : 'Password (8+ characters)'}
+            aria-label={`New password for ${user.name}`}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShow((s) => !s)}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-stone-400 transition hover:text-ink"
+            title={show ? 'Hide password' : 'Show password'}
+            aria-label={show ? 'Hide password' : 'Show password'}
+          >
+            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        <button type="submit" disabled={updateUser.isPending} className="btn btn-primary btn-sm">
+          <KeyRound className="h-4 w-4" /> {updateUser.isPending ? 'Saving…' : 'Save Password'}
+        </button>
+        <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
+          Cancel
+        </button>
+      </div>
+      {error && <div className="mt-2 text-sm text-maroon">{error}</div>}
+    </form>
+  );
+}
+
 export default function Users() {
   const { user: me } = useAuth();
   const { data: users, isLoading, error } = useUsers();
@@ -94,6 +197,8 @@ export default function Users() {
   const [form, setForm] = useState(EMPTY);
   const [formError, setFormError] = useState('');
   const [expanded, setExpanded] = useState(null);
+  // Id of the user whose "set password" form is open.
+  const [passwordFor, setPasswordFor] = useState(null);
 
   if (isLoading) return <LoadingScreen />;
   if (error) return <ErrorBox error={error} />;
@@ -317,21 +422,54 @@ export default function Users() {
                         {u.active ? 'Active' : 'Inactive'}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {!isMe && (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Delete ${u.name}?`)) deleteUser.mutate(u.id);
-                          }}
-                          className="rounded-md p-1.5 text-stone-400 transition hover:bg-maroon-light hover:text-maroon"
-                          title="Delete user"
-                          aria-label={`Delete ${u.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {isMe ? (
+                          // Your own password goes through the normal flow,
+                          // which asks for the current one first.
+                          <Link
+                            to="/change-password"
+                            className="rounded-md p-1.5 text-stone-400 transition hover:bg-maroon-light hover:text-maroon"
+                            title="Change your password"
+                            aria-label="Change your password"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Link>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setPasswordFor(passwordFor === u.id ? null : u.id)}
+                              className={`rounded-md p-1.5 transition hover:bg-maroon-light hover:text-maroon ${
+                                passwordFor === u.id ? 'bg-maroon-light text-maroon' : 'text-stone-400'
+                              }`}
+                              title="Set password"
+                              aria-label={`Set password for ${u.name}`}
+                              aria-expanded={passwordFor === u.id}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete ${u.name}?`)) deleteUser.mutate(u.id);
+                              }}
+                              className="rounded-md p-1.5 text-stone-400 transition hover:bg-maroon-light hover:text-maroon"
+                              title="Delete user"
+                              aria-label={`Delete ${u.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
+                  {passwordFor === u.id && !isMe && (
+                    <tr className="bg-stone-50/60">
+                      <td colSpan={7} className="px-4 py-3">
+                        <PasswordPanel user={u} onClose={() => setPasswordFor(null)} />
+                      </td>
+                    </tr>
+                  )}
                   {open && !noSections && (
                     <tr className="bg-stone-50/60">
                       <td colSpan={7} className="px-4 py-3">

@@ -4,6 +4,7 @@ import { authRequired, requireRole } from '../middleware/auth.js';
 import { CHECKLIST } from '../data/checklist.js';
 import { phoneKey } from '../utils/phone.js';
 import { passwordPolicyError } from '../utils/passwordPolicy.js';
+import { clearLoginFailures } from '../utils/loginGuard.js';
 
 const router = Router();
 
@@ -93,6 +94,15 @@ router.patch('/:id', async (req, res) => {
   }
 
   await user.save();
+
+  // A reset usually follows a run of failed sign-ins, so lift any lockout on
+  // this account — otherwise the new password would be refused until it expires.
+  if (password) {
+    clearLoginFailures(user.email);
+    const key = phoneKey(user.phone);
+    if (key) clearLoginFailures(key);
+  }
+
   res.json({ user: user.toSafeJSON() });
 });
 
