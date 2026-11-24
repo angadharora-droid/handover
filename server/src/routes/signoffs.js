@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, requireRole } from '../middleware/auth.js';
 import { AreaSignoff } from '../models/AreaSignoff.js';
 import { FinalSignoff } from '../models/FinalSignoff.js';
 import { getCurrentHandover } from '../utils/handover.js';
@@ -85,6 +85,20 @@ router.post('/final', async (req, res) => {
   await h.save();
 
   res.json({ finalSignoff, finalised: true });
+});
+
+// Reopen a finalised record so the checklist can be edited again (admin only).
+// The saved signatories are kept so the form is prefilled when the record is
+// finalised again, but they no longer count as signed until then.
+router.post('/final/unlock', requireRole('admin'), async (req, res) => {
+  const h = await getCurrentHandover();
+  if (!h) return res.status(400).json({ error: 'No handover found. Run the seed script.' });
+
+  h.finalised = false;
+  await h.save();
+
+  const finalSignoff = await FinalSignoff.findOne({ handover: h._id });
+  res.json({ finalSignoff, finalised: false });
 });
 
 export default router;

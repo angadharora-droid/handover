@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, Check, ClipboardList, Download } from 'lucide-react';
+import { AlertTriangle, Info, Check, ClipboardList, Download, LockOpen } from 'lucide-react';
 import {
   useChecklist,
   useEntries,
   useFinalSignoff,
   useFinalise,
+  useUnlockFinal,
   useHandover,
   useCustomItems,
   useUsers,
@@ -204,6 +205,7 @@ export default function Signoff() {
   const { data: handover } = useHandover();
   const { data: customItems } = useCustomItems();
   const finalise = useFinalise();
+  const unlock = useUnlockFinal();
   const { user } = useAuth();
 
   const isAdmin = user?.role === 'admin';
@@ -326,6 +328,22 @@ export default function Signoff() {
       await finalise.mutateAsync({ hariganga: hga, cph });
     } catch (err) {
       setFormError(apiError(err, 'Could not finalise'));
+    }
+  };
+
+  const onUnlock = async () => {
+    setFormError('');
+    if (
+      !confirm(
+        'Unlock the finalised record? The checklist becomes editable again and the record will need to be finalised once more.'
+      )
+    ) {
+      return;
+    }
+    try {
+      await unlock.mutateAsync();
+    } catch (err) {
+      setFormError(apiError(err, 'Could not unlock the record'));
     }
   };
 
@@ -543,6 +561,27 @@ export default function Signoff() {
                 {existing.cph?.name}
                 {existing.cph?.designation ? ` (${existing.cph.designation})` : ''}
               </div>
+              {isAdmin ? (
+                <div className="mt-4 border-t border-emerald-200 pt-3">
+                  <button
+                    onClick={onUnlock}
+                    disabled={unlock.isPending}
+                    className="btn btn-outline btn-sm"
+                  >
+                    <LockOpen className="h-4 w-4" />{' '}
+                    {unlock.isPending ? 'Unlocking…' : 'Unlock for Editing'}
+                  </button>
+                  <div className="mt-2 text-xs text-emerald-900/70">
+                    Reopens the checklist for changes. Finalise the record again once the edits
+                    are done.
+                  </div>
+                  {formError && <div className="mt-2 text-sm text-maroon">{formError}</div>}
+                </div>
+              ) : (
+                <div className="mt-3 text-xs text-emerald-900/70">
+                  Need to change something? Ask an administrator to unlock the record.
+                </div>
+              )}
             </div>
           ) : isViewer ? (
             <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm text-stone-600">

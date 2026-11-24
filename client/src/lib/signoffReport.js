@@ -137,8 +137,8 @@ export function buildSignoffReportHtml({
           : '<div class="final-note muted">Pending finalisation.</div>'
       }
       <div class="sigs">
-        ${sig('Hariganga — Authorised Signatory', existing?.hariganga)}
-        ${sig('CPH — Authorised Signatory', existing?.cph)}
+        ${sig('Hariganga — Authorised Signatory', finalised ? existing?.hariganga : null)}
+        ${sig('CPH — Authorised Signatory', finalised ? existing?.cph : null)}
       </div>
     </section>`;
 

@@ -114,6 +114,18 @@ export function useFinalise() {
   });
 }
 
+// Reopen a finalised record for editing (admin only).
+export function useUnlockFinal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/signoffs/final/unlock').then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finalSignoff'] });
+      qc.invalidateQueries({ queryKey: ['handover'] });
+    },
+  });
+}
+
 export function useChangePassword() {
   return useMutation({
     mutationFn: (body) => api.post('/auth/change-password', body).then((r) => r.data),
