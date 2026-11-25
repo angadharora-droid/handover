@@ -44,9 +44,12 @@ function collect(checklist, entries, keywords, customItems) {
   return { byStatus, immediate };
 }
 
-// Group the entries by status (accepted, pending-install, …) and, inside each
-// status, by area (in the checklist's canonical order) for the report.
-function collectStatusAreas(checklist, entries, keywords, customItems, statusOrder) {
+// Group the entries for the report two ways, so either layout can be exported:
+//  - statuses: status (accepted, pending-install, …) -> area -> items
+//  - areas:    area -> status -> items (the area-wise report)
+// Areas follow the checklist's canonical order and statuses follow statusOrder,
+// with any unexpected extras appended at the end.
+function collectReportGroups(checklist, entries, keywords, customItems, statusOrder) {
   const nameLookup = buildNameLookup(checklist, customItems);
 
   const areaOrder = Object.keys(checklist);
@@ -54,14 +57,19 @@ function collectStatusAreas(checklist, entries, keywords, customItems, statusOrd
   areaOrder.forEach((a, i) => {
     areaIndex[a] = i;
   });
+  const statusIndex = {};
+  (statusOrder || []).forEach((s, i) => {
+    statusIndex[s] = i;
+  });
 
-  // status -> area -> items
-  const map = {};
+  const byStatus = {}; // status -> area -> items
+  const byArea = {}; // area -> status -> items
   const immediate = [];
   (entries || []).forEach((e) => {
     if (!e.status) return;
     const rec = { ...e, item: nameLookup[`${e.area}::${e.itemId}`] || e.itemId };
-    ((map[e.status] ||= {})[e.area] ||= []).push(rec);
+    ((byStatus[e.status] ||= {})[e.area] ||= []).push(rec);
+    ((byArea[e.area] ||= {})[e.status] ||= []).push(rec);
     if (e.remarks && isImmediateAction(e.remarks, keywords)) immediate.push(rec);
   });
 
@@ -72,25 +80,32 @@ function collectStatusAreas(checklist, entries, keywords, customItems, statusOrd
       if (ra !== rb) return ra.localeCompare(rb, undefined, { numeric: true });
       return String(a.itemId).localeCompare(String(b.itemId), undefined, { numeric: true });
     });
+  const byAreaOrder = (a, b) =>
+    (areaIndex[a] ?? 999) - (areaIndex[b] ?? 999) || a.localeCompare(b);
+  const byStatusOrder = (a, b) =>
+    (statusIndex[a] ?? 999) - (statusIndex[b] ?? 999) || a.localeCompare(b);
 
-  // Statuses in the canonical order, then any unexpected extras.
-  const statusSeq = [...(statusOrder || [])];
-  Object.keys(map).forEach((s) => {
-    if (!statusSeq.includes(s)) statusSeq.push(s);
-  });
-
-  const statuses = statusSeq
-    .filter((s) => map[s] && Object.keys(map[s]).length)
+  const statuses = Object.keys(byStatus)
+    .sort(byStatusOrder)
     .map((status) => {
-      const areasObj = map[status];
-      const areas = Object.keys(areasObj)
-        .sort((a, b) => (areaIndex[a] ?? 999) - (areaIndex[b] ?? 999) || a.localeCompare(b))
-        .map((area) => ({ area, items: sortItems(areasObj[area]) }));
+      const areas = Object.keys(byStatus[status])
+        .sort(byAreaOrder)
+        .map((area) => ({ area, items: sortItems(byStatus[status][area]) }));
       const count = areas.reduce((n, a) => n + a.items.length, 0);
       return { status, areas, count };
     });
 
-  return { statuses, immediate };
+  const areas = Object.keys(byArea)
+    .sort(byAreaOrder)
+    .map((area) => {
+      const groups = Object.keys(byArea[area])
+        .sort(byStatusOrder)
+        .map((status) => ({ status, items: sortItems(byArea[area][status]) }));
+      const count = groups.reduce((n, g) => n + g.items.length, 0);
+      return { area, statuses: groups, count };
+    });
+
+  return { statuses, areas, immediate };
 }
 
 // Keep only entries last updated within [from, to] (inclusive, local time),
@@ -228,6 +243,8 @@ export default function Signoff() {
   // Statuses / areas to include; empty = everything.
   const [reportStatuses, setReportStatuses] = useState([]);
   const [reportAreas, setReportAreas] = useState([]);
+  // Report layout: 'status' (status -> area) or 'area' (area-wise: area -> status).
+  const [reportGroupBy, setReportGroupBy] = useState('status');
 
   // Prefill from the existing record or the logged-in user (once).
   useEffect(() => {
@@ -264,13 +281,11 @@ export default function Signoff() {
       statuses: reportStatuses,
       areas: reportAreas,
     });
-    const { statuses: repStatuses, immediate: repImmediate } = collectStatusAreas(
-      checklist,
-      filtered,
-      cl.immediateKeywords,
-      customItems,
-      cl.statusOrder
-    );
+    const {
+      statuses: repStatuses,
+      areas: repAreas,
+      immediate: repImmediate,
+    } = collectReportGroups(checklist, filtered, cl.immediateKeywords, customItems, cl.statusOrder);
 
     // "Date" for a single day, "Date range" otherwise, so the heading reads
     // naturally whether one date or a from–to span was chosen.
@@ -309,7 +324,9 @@ export default function Signoff() {
 
     downloadSignoffReport({
       handover,
+      groupBy: reportGroupBy,
       statuses: repStatuses,
+      areas: repAreas,
       immediate: repImmediate,
       existing,
       finalised,
@@ -359,28 +376,61 @@ export default function Signoff() {
             Export the sign-off sheet as a printable PDF.{' '}
             {isAdmin
               ? 'Filter by date range, user, status and area, or leave blank for the full record.'
-              : 'Filter by date range, status and area — the report covers your own entries.'}
+              : 'Filter by date range, status and area — the report covers your own entries.'}{' '}
+            Group it by status, or area-wise to get one section per area.
           </p>
-          {(() => {
-            const today = todayStr();
-            const isToday = fromDate === today && toDate === today;
-            return (
-              <button
-                type="button"
-                onClick={() => {
-                  setFromDate(today);
-                  setToDate(today);
-                }}
-                className={`mb-4 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  isToday
-                    ? 'border-maroon bg-maroon text-white'
-                    : 'border-stone-200 text-stone-600 hover:border-maroon/40 hover:text-maroon'
-                }`}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            {(() => {
+              const today = todayStr();
+              const isToday = fromDate === today && toDate === today;
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFromDate(today);
+                    setToDate(today);
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    isToday
+                      ? 'border-maroon bg-maroon text-white'
+                      : 'border-stone-200 text-stone-600 hover:border-maroon/40 hover:text-maroon'
+                  }`}
+                >
+                  Today
+                </button>
+              );
+            })()}
+            {/* Report layout — status-first (default) or area-wise. */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-stone-500">Group by</span>
+              <div
+                role="radiogroup"
+                aria-label="Group report by"
+                className="inline-flex rounded-full border border-stone-200 p-0.5"
               >
-                Today
-              </button>
-            );
-          })()}
+                {[
+                  { val: 'status', label: 'Status' },
+                  { val: 'area', label: 'Area' },
+                ].map((opt) => {
+                  const on = reportGroupBy === opt.val;
+                  return (
+                    <button
+                      key={opt.val}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setReportGroupBy(opt.val)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        on ? 'bg-maroon text-white' : 'text-stone-600 hover:text-maroon'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
           <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <div className="input-label">From date</div>

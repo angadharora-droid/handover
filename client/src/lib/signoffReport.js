@@ -77,9 +77,49 @@ function statusSectionHtml({ status, areas, count }) {
     </section>`;
 }
 
+// A status sub-group within an area section (area-wise report).
+function statusGroupHtml({ status, items }) {
+  const color = STATUS_COLOR[status] || '#444441';
+  return `
+    <div class="area-group">
+      <div class="status-label" style="color:${color}">
+        <span class="dot" style="background:${color}"></span>
+        ${esc(STATUS_LABEL[status] || status)}<span class="area-count">${items.length}</span>
+      </div>
+      <table><tbody>${items.map(itemRowHtml).join('')}</tbody></table>
+    </div>`;
+}
+
+// One section per area; the header carries a per-status count breakdown and the
+// body lists the area's items grouped by status (area-wise report).
+function areaSectionHtml({ area, statuses, count }) {
+  const chips = statuses
+    .map(({ status, items }) => {
+      const color = STATUS_COLOR[status] || '#444441';
+      const bg = STATUS_SECTION[status]?.bg || '#f1efe8';
+      return `<span class="chip" style="background:${bg};color:${color}">${esc(
+        STATUS_LABEL[status] || status
+      )} <b>${items.length}</b></span>`;
+    })
+    .join('');
+  return `
+    <section class="block">
+      <div class="block-head" style="background:#faf8f3;border-color:#ececec">
+        <div class="block-title" style="color:#6f0e13">
+          ${esc(area)}
+          <span class="count" style="color:#6f0e13;background:#fff">${count}</span>
+        </div>
+        <div class="chips">${chips}</div>
+      </div>
+      <div class="status-body">${statuses.map(statusGroupHtml).join('')}</div>
+    </section>`;
+}
+
 export function buildSignoffReportHtml({
   handover,
+  groupBy = 'status',
   statuses,
+  areas,
   immediate,
   existing,
   finalised,
@@ -88,18 +128,22 @@ export function buildSignoffReportHtml({
 }) {
   const title = handover?.name || 'Visit Sign-Off Sheet';
   const subParts = [handover?.code, handover?.location].filter(Boolean).map(esc).join(' · ');
+  const areaWise = groupBy === 'area';
 
   // The browser's "Save as PDF" dialog seeds the file name from <title>, so fold
-  // the chosen date (single day or range) into it — skip the generic "All dates".
+  // the layout and the chosen date (single day or range) into it — skip the
+  // generic "All dates".
+  const reportKind = areaWise ? 'Area-wise Sign-Off Report' : 'Sign-Off Report';
   const dateLabel = filterSummary?.dateLabel;
   const docTitle =
     dateLabel && dateLabel !== 'All dates'
-      ? `${title} — Sign-Off Report — ${dateLabel}`
-      : `${title} — Sign-Off Report`;
+      ? `${title} — ${reportKind} — ${dateLabel}`
+      : `${title} — ${reportKind}`;
 
-  const sections = (statuses || []).map(statusSectionHtml).join('');
+  const groups = (areaWise ? areas : statuses) || [];
+  const sections = groups.map(areaWise ? areaSectionHtml : statusSectionHtml).join('');
 
-  const totalItems = (statuses || []).reduce((n, s) => n + s.count, 0);
+  const totalItems = groups.reduce((n, g) => n + g.count, 0);
 
   const immediateHtml = (immediate || []).length
     ? `
@@ -178,7 +222,7 @@ export function buildSignoffReportHtml({
      big blank gaps. Round the header corners directly instead. */
   .block { border: 1px solid #ececec; border-radius: 12px; margin-bottom: 16px; }
   .block-head {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px;
     padding: 9px 14px; border-bottom: 1px solid; border-radius: 11px 11px 0 0; }
   .block-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -187,10 +231,15 @@ export function buildSignoffReportHtml({
   .status-body { padding: 2px 0; }
   .area-group { border-top: 1px solid #efece4; }
   .area-group:first-child { border-top: 0; }
-  .area-label {
+  .area-label, .status-label {
     display: flex; align-items: center; gap: 8px;
     padding: 9px 14px 3px; font-weight: 600; font-size: 12px; color: var(--maroon);
   }
+  .status-label .dot { width: 7px; height: 7px; }
+  /* Per-status breakdown in an area-wise section header. */
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+  .chip b { font-weight: 700; }
   .area-count {
     background: #f1efe8; color: #6b6a64; border-radius: 999px;
     padding: 0 7px; font-size: 10px; font-weight: 700;
@@ -227,7 +276,7 @@ export function buildSignoffReportHtml({
     header { break-after: avoid; }
     /* Don't force whole groups onto a new page (that leaves big blank gaps);
        only keep individual rows intact and avoid orphaning an area label. */
-    .area-label { break-after: avoid; }
+    .area-label, .status-label { break-after: avoid; }
     tr { break-inside: avoid; }
     .final { break-inside: avoid; }
   }
@@ -239,10 +288,11 @@ export function buildSignoffReportHtml({
     <header>
       <h1>${esc(title)}</h1>
       ${subParts ? `<div class="sub">${subParts}</div>` : ''}
-      <div class="doc-kind">Visit Sign-Off Sheet · Official Record</div>
+      <div class="doc-kind">Visit Sign-Off Sheet${areaWise ? ' · Area-wise' : ''} · Official Record</div>
     </header>
     <div class="meta">
       <div><b>Generated:</b> ${esc(generatedAt)}</div>
+      <div><b>Grouped by:</b> ${areaWise ? 'Area' : 'Status'}</div>
       <div><b>${esc(filterSummary?.dateHeading || 'Date range')}:</b> ${esc(filterSummary?.dateLabel || 'All dates')}</div>
       <div><b>User:</b> ${esc(filterSummary?.userLabel || 'All users')}</div>
       <div><b>Statuses:</b> ${esc(filterSummary?.statusLabel || 'All statuses')}</div>
@@ -277,7 +327,8 @@ export function downloadSignoffReport(opts) {
   const a = document.createElement('a');
   const dateLabel = opts.filterSummary?.dateLabel;
   const datePart = dateLabel && dateLabel !== 'All dates' ? `-${dateLabel}` : '';
-  const name = `${opts.handover?.name || 'sign-off'}-report${datePart}`
+  const kindPart = opts.groupBy === 'area' ? '-area-wise' : '';
+  const name = `${opts.handover?.name || 'sign-off'}${kindPart}-report${datePart}`
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
